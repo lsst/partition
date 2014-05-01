@@ -1,17 +1,22 @@
 # -*- python -*-
 import os, sys
+import SCons.Script
+
+env = Environment()
+opts = SCons.Script.Variables("custom.py")
+opts.AddVariables(
+          (PathVariable('prefix', 'Installation prefix', "build", PathVariable.PathIsDirCreate))
+)
+
+opts.Update(env)
 
 # TODO: use Variables instead?
-AddOption('--prefix', dest='prefix', metavar='DIR',
-          help='Installation prefix')
 AddOption('--debug-build', dest='debug_build', action='store_true',
           default=False, help='Debug build')
 AddOption('--boost-includes', dest='boost_includes', metavar='DIR',
           help='Boost include directory')
 AddOption('--boost-libs', dest='boost_libs', metavar='DIR',
           help='Boost library directory')
-
-env = Environment(PREFIX=os.path.abspath(GetOption('prefix')))
 
 env['ENV']['PATH'] = os.environ['PATH']
 
@@ -24,8 +29,8 @@ if GetOption('debug_build'):
 else:
     variant_dir = 'build/release'
     env.Append(CCFLAGS=['-O2'])
-env.Alias('install', ['$PREFIX/bin', '$PREFIX/ups'])
-env.Install('$PREFIX/ups', 'ups/partition.table')
+env.Alias('install', ['$prefix/bin', '$prefix/ups'])
+env.Install('$prefix/ups', 'ups/partition.table')
 
 env.Help("Spherical data partitioning and duplication utilities.")
 
