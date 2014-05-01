@@ -11,7 +11,7 @@ AddOption('--boost-includes', dest='boost_includes', metavar='DIR',
 AddOption('--boost-libs', dest='boost_libs', metavar='DIR',
           help='Boost library directory')
 
-env = Environment(PREFIX=GetOption('prefix'))
+env = Environment(PREFIX=os.path.abspath(GetOption('prefix')))
 
 env['ENV']['PATH'] = os.environ['PATH']
 
