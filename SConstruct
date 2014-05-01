@@ -24,7 +24,8 @@ if GetOption('debug_build'):
 else:
     variant_dir = 'build/release'
     env.Append(CCFLAGS=['-O2'])
-env.Alias('install', '$PREFIX/bin')
+env.Alias('install', ['$PREFIX/bin', '$PREFIX/ups'])
+env.Install('$PREFIX/ups', 'ups/partition.table')
 
 env.Help("Spherical data partitioning and duplication utilities.")
 
