@@ -32,12 +32,11 @@
 #include "TempFile.h"
 
 namespace fs = boost::filesystem;
-namespace dupr = lsst::qserv::admin::dupr;
 
 using std::exception;
 using std::vector;
-using dupr::HtmIndex;
-using dupr::HTM_MAX_LEVEL;
+using lsst::partition::HtmIndex;
+using lsst::partition::HTM_MAX_LEVEL;
 
 BOOST_AUTO_TEST_CASE(HtmIndexTest) {
     BOOST_CHECK_THROW(HtmIndex(-1), exception);

@@ -23,8 +23,8 @@
 /// \file
 /// \brief Simple file access.
 
-#ifndef LSST_QSERV_ADMIN_DUPR_FILEUTILS_H
-#define LSST_QSERV_ADMIN_DUPR_FILEUTILS_H
+#ifndef LSST_PARTITION_FILEUTILS_H
+#define LSST_PARTITION_FILEUTILS_H
 
 #include <sys/types.h>
 #include <stdint.h>
@@ -34,9 +34,7 @@
 
 
 namespace lsst {
-namespace qserv {
-namespace admin {
-namespace dupr {
+namespace partition {
 
 /// An input file. Safe for use from multiple threads.
 class InputFile {
@@ -168,6 +166,6 @@ template <> inline uint64_t decode<uint64_t>(uint8_t const * buf) {
            (static_cast<uint64_t>(buf[7]) << 56);
 }
 
-}}}} // namespace lsst::qserv::admin::dupr
+}} // namespace lsst::partition
 
-#endif // LSST_QSERV_ADMIN_DUPR_FILEUTILS_H
+#endif // LSST_PARTITION_FILEUTILS_H

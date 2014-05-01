@@ -5,11 +5,11 @@ Summary
 -------
 
 Qserv’s partitioners are implemented as standalone C++ programs
-(`qserv-partition` or `qserv-partition-matches`, built from `qserv/admin/dupr/`
-in the source tree) that separate input rows from a file (or set of files) and
-write them into another set of files named according to their partition numbers.
+(`sph-partition` or `sph-partition-matches`) that separate input rows from one
+or more files and write them into another set of files named according to their
+partition numbers.
 
-`qserv-partition[-matches]` takes as input a set of CSV files, and based on a
+`sph-partition[-matches]` takes as input a set of CSV files, and based on a
 specified partition configuration, produces output CSV files (one per partition).
 Each partition is called a "chunk" and contains subpartitions ("subchunks"),
 although a partition’s subpartitions are stored together in a file (and table).
@@ -75,8 +75,7 @@ which collect statistics on how many records are in each sub-chunk and
 write output records to disk. This is all implemented in C++, using a small
 in-memory map-reduce processing framework tailored to the task. The framework
 is multi-threaded - file input, processing, and output are all block oriented
-and parallel (see `qserv/admin/dupr/src/MapReduce.h` in the source tree for
-details).
+and parallel (see `src/MapReduce.h` in the source tree for details).
 
 As a result of using this model, the code that deals with parallelization is
 separated from the partitioning logic, making the implementation easier to
@@ -125,7 +124,7 @@ the `Source` and `Object` tables can now be partitioned as follows:
 CFG_DIR=$QSERV_DIR/admin/dupr/config/PT1.2
 
 for TABLE in Object Source; do
-    qserv-partition \
+    sph-partition \
         --config-file=$CFG_DIR/$TABLE.cfg \
         --config-file=$CFG_DIR/common.cfg \
         --in.csv.null=NULL \
@@ -142,7 +141,7 @@ done
 The matches can be partitioned using:
 
 ~~~~sh
-    qserv-partition-matches \
+    sph-partition-matches \
         --config-file=$CFG_DIR/RefObjMatch.cfg \
         --config-file=$CFG_DIR/common.cfg \
         --in.csv.null=NULL \
@@ -158,6 +157,6 @@ The matches can be partitioned using:
 Output chunk files are stored in the directory specified by `--out.dir`,
 and can subsequently be distributed and loaded into the MySQL databases
 on worker nodes. Examine the config files referenced above and run
-`qserv-partition --help` or `qserv-partition-matches --help` for more
+`sph-partition --help` or `sph-partition-matches --help` for more
 information on partitioning parameters.
 

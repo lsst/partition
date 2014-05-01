@@ -22,10 +22,10 @@
 
 /// \file
 /// \brief Assignment of points on the sky to chunks and sub-chunks
-///        according to the Qserv partitioning strategy.
+///        according to a simple partitioning strategy for the sphere.
 
-#ifndef LSST_QSERV_ADMIN_DUPR_CHUNKER_H
-#define LSST_QSERV_ADMIN_DUPR_CHUNKER_H
+#ifndef LSST_PARTITION_CHUNKER_H
+#define LSST_PARTITION_CHUNKER_H
 
 #include <stdint.h>
 #include <utility>
@@ -39,9 +39,7 @@
 
 
 namespace lsst {
-namespace qserv {
-namespace admin {
-namespace dupr {
+namespace partition {
 
 /// Compute the number of segments to divide the given latitude angle range
 /// (stripe) into. Two points in the latitude range separated by at least
@@ -64,7 +62,7 @@ struct ChunkLocation {
     ChunkLocation() : chunkId(-1), subChunkId(-1), overlap(false) { }
 
     /// Hash chunk locations by chunk ID.
-    uint32_t hash() const { return dupr::hash(static_cast<uint32_t>(chunkId)); }
+    uint32_t hash() const { return partition::hash(static_cast<uint32_t>(chunkId)); }
 
     /// Order chunk locations by chunk ID.
     bool operator<(ChunkLocation const & loc) const {
@@ -73,9 +71,18 @@ struct ChunkLocation {
 };
 
 
-/// A Chunker locates points according to the Qserv partitioning scheme.
+/// A Chunker locates points according to the following simple partitioning scheme.
+///
+/// The celestial sphere is divided into latitude angle "stripes" of fixed height H.
+/// For each stripe, a width W is computed such that any two points in the stripe
+/// with longitude angles separated by at least W have angular separation of
+/// at least H. The stripe is then broken into an integral number of chunks of
+/// width at least W. The same procedure is used to obtain finer subchunks -
+/// each stripe is broken into a configureable number of equal-height "substripes",
+/// and each substripe is broken into equal-width subchunks.
+///
 /// Also provided are methods for retrieving bounding boxes of chunks and
-/// sub-chunks, as well as for assigning chunks to (Qserv worker) nodes.
+/// sub-chunks, as well as for assigning chunks to (database worker) nodes.
 class Chunker {
 public:
     Chunker(double overlap,
@@ -184,6 +191,6 @@ private:
     boost::scoped_array<double> _alpha;
 };
 
-}}}} // namespace lsst::qserv::admin::dupr
+}} // namespace lsst::partition
 
-#endif // LSST_QSERV_ADMIN_DUPR_CHUNKER_H
+#endif // LSST_PARTITION_CHUNKER_H

@@ -60,8 +60,8 @@ namespace {
         }
 
         void concatenate(TempFile const & t1, TempFile const & t2) {
-            using lsst::qserv::admin::dupr::InputFile;
-            using lsst::qserv::admin::dupr::OutputFile;
+            using lsst::partition::InputFile;
+            using lsst::partition::OutputFile;
 
             InputFile if1(t1.path());
             InputFile if2(t2.path());

@@ -132,7 +132,7 @@ directory, the `Source` and `Object` tables can be indexed as follows:
 CFG_DIR=$QSERV_DIR/admin/dupr/config/PT1.2
 
 for TABLE in Object Source; do
-    qserv-htm-index \
+    sph-htm-index \
         --config-file=$CFG_DIR/$TABLE.cfg \
         --htm.level=8 \
         --in.csv.null=NULL \
@@ -230,7 +230,7 @@ value, meaning that options given on the command line override those present
 in config files, and that options in earlier config files override those in
 later config files.
 
-Both `qserv-htm-index` and `qserv-duplicate` skip unrecognized options. This
+Both `sph-htm-index` and `sph-duplicate` skip unrecognized options. This
 allows the same set of config files to be useful for both executables,
 minimizing stutter.
 
@@ -242,7 +242,7 @@ just generated:
 CFG_DIR=$QSERV_DIR/admin/dupr/config/PT1.2
 
 for TABLE in Object Source; do
-    qserv-duplicate \
+    sph-duplicate \
         --config-file=$CFG_DIR/$TABLE.cfg \
         --config-file=$CFG_DIR/common.cfg \
         --in.csv.null=\\N \
@@ -261,7 +261,7 @@ done
 ~~~~
 
 For a description of the possible options, see the config files referenced
-above. Alternatively, run `qserv-htm-index --help` or `qserv-duplicate --help`
+above. Alternatively, run `sph-htm-index --help` or `sph-duplicate --help`
 for a complete list.
 
 Estimating Duplicated Data Volumes
@@ -269,13 +269,13 @@ Estimating Duplicated Data Volumes
 
 A natural question is whether there is a way to estimate how large a duplicated
 data set will be without actually generating it. Answering this question is the
-purpose of the `qserv-estimate-stats` utility. Passing the same parameters you
-would pass to `qserv-duplicate` will yield statistics over an estimate of the
+purpose of the `sph-estimate-stats` utility. Passing the same parameters you
+would pass to `sph-duplicate` will yield statistics over an estimate of the
 duplicated chunk and sub-chunk populations, including an estimate of the total
 record count. Continuing with the example above:
 
 ~~~~sh
-qserv-estimate-stats \
+sph-estimate-stats \
     --config-file=config/PT1.2/Object.cfg \
     --config-file=config/PT1.2/common.cfg  \
     --index=index/Object/htm_index.bin \
@@ -301,7 +301,7 @@ local storage? It is possible to place the indexes and/or input on networked
 storage (if available), but then indexing and duplication performance is
 not likely to scale well with node count.
 
-Both `qserv-htm-index` and `qserv-duplicate` have been designed with such
+Both `sph-htm-index` and `sph-duplicate` have been designed with such
 scenarios in mind, and can be run in distributed fashion. Here’s how.
 
 Distributed Indexing
@@ -321,7 +321,7 @@ INDEX_DIR=/my/index/directory/
 CFG_DIR=/my/config/directory/
 TABLE=Table
 
-qserv-htm-index \
+sph-htm-index \
     --config-file=$CFG_DIR/$TABLE.cfg \
     --in=$INPUT_DIR/$TABLE/ \
     --out.dir=$INDEX_DIR/$TABLE/ \
@@ -392,7 +392,7 @@ CHUNK_DIR=/my/chunk/directory/
 CFG_DIR=/my/config/directory/
 TABLE=Table
 
-qserv-duplicate \
+sph-duplicate \
     --config-file=$CFG_DIR/$TABLE \
     --index=$INDEX_DIR/$TABLE/htm_index.bin \
     --part.index=$INDEX_DIR/Object/htm_index.bin \

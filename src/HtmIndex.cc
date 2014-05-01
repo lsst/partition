@@ -44,9 +44,7 @@ namespace fs = boost::filesystem;
 
 
 namespace lsst {
-namespace qserv {
-namespace admin {
-namespace dupr {
+namespace partition {
 
 HtmIndex::HtmIndex(int level) :
     _numRecords(0),
@@ -222,4 +220,4 @@ void HtmIndex::_read(fs::path const & path) {
     }
 }
 
-}}}} // namespace lsst::qserv::admin::dupr
+}} // namespace lsst::partition

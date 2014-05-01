@@ -24,8 +24,8 @@
 /// \brief Machinery for spherical geometry and
 ///        Hierarchical Triangular Mesh indexing.
 
-#ifndef LSST_QSERV_ADMIN_DUPR_GEOMETRY_H
-#define LSST_QSERV_ADMIN_DUPR_GEOMETRY_H
+#ifndef LSST_PARTITION_GEOMETRY_H
+#define LSST_PARTITION_GEOMETRY_H
 
 #include <stdint.h>
 #include <cmath>
@@ -38,9 +38,7 @@
 
 
 namespace lsst {
-namespace qserv {
-namespace admin {
-namespace dupr {
+namespace partition {
 
 /// Clamp `lon` to be at most 360 degrees. Any input satisfying
 ///
@@ -135,7 +133,7 @@ class SphericalBox;
 ///
 /// What are such coordinates used for?
 ///
-/// Well, at a very high level, the Qserv data duplicator works by building a
+/// Well, at a very high level, the spherical data duplicator works by building a
 /// map of non-empty HTM triangles. It converts the coordinates of each point
 /// to spherical barycentric form. Then, to populate an empty triangle u, the
 /// duplicator chooses a non-empty triangle v and copies all its points.
@@ -158,7 +156,7 @@ class SphericalBox;
 /// derive a catalog of greater or smaller density from an input catalog,
 /// with relative angular structure roughly preserved.
 ///
-/// See `QservDuplicate.cc` (the duplicator source code) to see this in action.
+/// See `SphDuplicate.cc` (the duplicator source code) to see this in action.
 class SphericalTriangle {
 public:
     /// Construct the HTM triangle with the given HTM ID.
@@ -296,6 +294,6 @@ private:
     double _latMax;
 };
 
-}}}} // namespace lsst::qserv::admin::dupr
+}} // namespace lsst::partition
 
-#endif // LSST_QSERV_ADMIN_DUPR_GEOMETRY_H
+#endif // LSST_PARTITION_GEOMETRY_H

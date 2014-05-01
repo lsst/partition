@@ -47,9 +47,7 @@ namespace po = boost::program_options;
 
 
 namespace lsst {
-namespace qserv {
-namespace admin {
-namespace dupr {
+namespace partition {
 
 namespace csv {
 
@@ -921,4 +919,4 @@ SPECIALIZE_GET_FP(double, d)
 
 } // namespace csv
 
-}}}} // namespace lsst::qserv::admin::dupr
+}} // namespace lsst::partition

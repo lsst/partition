@@ -20,8 +20,8 @@
  * see <http://www.lsstcorp.org/LegalNotices/>.
  */
 
-#ifndef LSST_QSERV_ADMIN_DUPR_CHUNKREDUCER_H
-#define LSST_QSERV_ADMIN_DUPR_CHUNKREDUCER_H
+#ifndef LSST_PARTITION_CHUNKREDUCER_H
+#define LSST_PARTITION_CHUNKREDUCER_H
 
 #include <stdint.h>
 
@@ -35,9 +35,7 @@
 #include "MapReduce.h"
 
 namespace lsst {
-namespace qserv {
-namespace admin {
-namespace dupr {
+namespace partition {
 
 /// Worker base class for the partitioner and duplicator which implements the
 /// reduction related half of the map-reduce API.
@@ -73,6 +71,6 @@ private:
     BufferedAppender _overlapChunkAppender;
 };
 
-}}}} // namespace lsst::qserv::admin::dupr
+}} // namespace lsst::partition
 
-#endif // LSST_QSERV_ADMIN_DUPR_CHUNKREDUCER_H
+#endif // LSST_PARTITION_CHUNKREDUCER_H

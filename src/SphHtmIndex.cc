@@ -21,7 +21,7 @@
  */
 
 /// \file
-/// \brief The Qserv HTM indexer.
+/// \brief The HTM indexer.
 
 #include <cstdio>
 #include <iostream>
@@ -61,9 +61,7 @@ namespace po = boost::program_options;
 
 
 namespace lsst {
-namespace qserv {
-namespace admin {
-namespace dupr {
+namespace partition {
 
 /// An ID extracted from a CSV record, along with the HTM ID
 /// of the associated partitioning position.
@@ -87,7 +85,7 @@ template <> struct Record<Key> {
         id(k.id), htmId(k.htmId), size(0), data(0) { }
 
     /// Hash records by HTM ID.
-    uint32_t hash() const { return dupr::hash(htmId); }
+    uint32_t hash() const { return partition::hash(htmId); }
 
     /// Order records by HTM ID.
     bool operator<(Record const & r) const { return htmId < r.htmId; }
@@ -257,12 +255,12 @@ void Worker::_openFiles(uint32_t htmId) {
 
 typedef Job<Worker> HtmIndexJob;
 
-}}}} // namespace lsst::qserv::admin::dupr
+}} // namespace lsst::partition
 
 
 static char const * help =
-    "The Qserv HTM indexer indexes one or more input CSV files in\n"
-    "preparation for the Qserv spatial data duplicator.\n"
+    "The spherical HTM indexer indexes one or more input CSV files in\n"
+    "preparation for the spherical data duplicator.\n"
     "\n"
     "An index can be built incrementally by running the indexer with\n"
     "disjoint input file sets and the same output directory. Beware -\n"
@@ -273,15 +271,15 @@ static char const * help =
     "index will be corrupt and/or useless.\n";
 
 int main(int argc, char const * const * argv) {
-    namespace dupr = lsst::qserv::admin::dupr;
+    namespace part = lsst::partition;
     try {
         po::options_description options;
-        dupr::HtmIndexJob::defineOptions(options);
+        part::HtmIndexJob::defineOptions(options);
         po::variables_map vm;
-        dupr::parseCommandLine(vm, options, argc, argv, help);
-        dupr::makeOutputDirectory(vm, true);
-        dupr::HtmIndexJob job(vm);
-        shared_ptr<dupr::HtmIndex> index = job.run(dupr::makeInputLines(vm));
+        part::parseCommandLine(vm, options, argc, argv, help);
+        part::makeOutputDirectory(vm, true);
+        part::HtmIndexJob job(vm);
+        shared_ptr<part::HtmIndex> index = job.run(part::makeInputLines(vm));
         if (!index->empty()) {
             fs::path d(vm["out.dir"].as<string>());
             index->write(d / "htm_index.bin", false);

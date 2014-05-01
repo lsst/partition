@@ -26,7 +26,7 @@ else:
     env.Append(CCFLAGS=['-O2'])
 env.Alias('install', '$PREFIX/bin')
 
-env.Help("Qserv spatial partitioning and duplication utilities.")
+env.Help("Spherical data partitioning and duplication utilities.")
 
 boostLibs = ['system',
              'thread',

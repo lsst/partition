@@ -45,9 +45,7 @@ using boost::math::constants::pi;
 
 
 namespace lsst {
-namespace qserv {
-namespace admin {
-namespace dupr {
+namespace partition {
 
 namespace {
 
@@ -939,4 +937,4 @@ void SphericalBox::_findIds(
     _findIds(ids, id*4 + 3, level - 1, mChild);
 }
 
-}}}} // namespace lsst::qserv::admin::dupr
+}} // namespace lsst::partition

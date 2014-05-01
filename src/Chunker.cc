@@ -44,9 +44,7 @@ namespace po = boost::program_options;
 
 
 namespace lsst {
-namespace qserv {
-namespace admin {
-namespace dupr {
+namespace partition {
 
 int segments(double latMin, double latMax, double width) {
     double lat = max(fabs(latMin), fabs(latMax));
@@ -411,4 +409,4 @@ void Chunker::_upDownOverlap(double lon,
     }
 }
 
-}}}} // namespace lsst::qserv::admin::dupr
+}} // namespace lsst::partition

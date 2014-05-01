@@ -41,7 +41,7 @@ if not GetOption('help') and not GetOption('clean'):
     testEnv=conf.Finish()
 testEnv.Append(CPPPATH=['../src'])
 testEnv.Append(LIBPATH=['../src'])
-testEnv.Prepend(LIBS=['dupr'])
+testEnv.Prepend(LIBS=['partition'])
 testEnv.Append(BUILDERS={'Test': Builder(action=runTest, suffix='.test')})
 
 for source in testEnv.Glob('*.cc'):

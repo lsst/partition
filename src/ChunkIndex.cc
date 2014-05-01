@@ -51,9 +51,7 @@ namespace fs = boost::filesystem;
 
 
 namespace lsst {
-namespace qserv {
-namespace admin {
-namespace dupr {
+namespace partition {
 
 void ChunkIndex::Stats::clear() {
     n = 0;
@@ -382,4 +380,4 @@ void ChunkIndex::_computeStats() const {
     _modified = false;
 }
 
-}}}} // namespace lsst::qserv::admin::dupr
+}} // namespace lsst::partition

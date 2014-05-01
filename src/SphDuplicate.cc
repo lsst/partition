@@ -21,7 +21,7 @@
  */
 
 /// \file
-/// \brief The Qserv spatial data duplicator.
+/// \brief The spherical data duplicator.
 
 #include <cstdio>
 #include <algorithm>
@@ -63,9 +63,7 @@ namespace po = boost::program_options;
 
 
 namespace lsst {
-namespace qserv {
-namespace admin {
-namespace dupr {
+namespace partition {
 
 class Worker;
 
@@ -210,7 +208,7 @@ void LessThanCounter::setup(HtmIndex const & index,
 }
 
 
-/// Map-reduce worker class for the Qserv spatial data duplicator.
+/// Map-reduce worker class for the duplicator.
 class Worker : public ChunkReducer {
 public:
     Worker(po::variables_map const & vm);
@@ -626,25 +624,25 @@ shared_ptr<ChunkIndex> const Duplicator::run(po::variables_map const & vm) {
     return chunkIndex;
 }
 
-}}}} // namespace lsst::qserv::admin::dupr
+}} // namespace lsst::partition
 
 
 static char const * help =
-    "The Qserv duplicator generates partitioned data from an HTM index of\n"
-    "an input data set by copying and rotating input data to \"fill in\"\n"
+    "The spherical data duplicator generates partitioned data from an HTM index\n"
+    "of an input data set by copying and rotating input data to \"fill in\"\n"
     "parts of the sky not covered by the input.\n";
 
 int main(int argc, char const * const * argv) {
-    namespace dupr = lsst::qserv::admin::dupr;
+    namespace part = lsst::partition;
     try {
         po::options_description options;
-        dupr::DuplicateJob::defineOptions(options);
+        part::DuplicateJob::defineOptions(options);
         po::variables_map vm;
-        dupr::parseCommandLine(vm, options, argc, argv, help);
-        dupr::ensureOutputFieldExists(vm, "part.chunk");
-        dupr::ensureOutputFieldExists(vm, "part.sub-chunk");
-        dupr::makeOutputDirectory(vm, true);
-        shared_ptr<dupr::ChunkIndex> index = dupr::duplicator.run(vm);
+        part::parseCommandLine(vm, options, argc, argv, help);
+        part::ensureOutputFieldExists(vm, "part.chunk");
+        part::ensureOutputFieldExists(vm, "part.sub-chunk");
+        part::makeOutputDirectory(vm, true);
+        shared_ptr<part::ChunkIndex> index = part::duplicator.run(vm);
         if (!index->empty()) {
             fs::path d(vm["out.dir"].as<string>());
             fs::path f = vm["part.prefix"].as<string>() + "_index.bin";

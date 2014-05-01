@@ -2,18 +2,18 @@
 Import('env')
 
 lenv = env.Clone()
-sources = lenv.Glob('[!Q]*.cc')
-lenv.StaticLibrary('dupr', sources)
+sources = lenv.Glob('[!S]*.cc')
+lenv.StaticLibrary('partition', sources)
 
-for target in ('qserv-htm-index',
-               'qserv-partition',
-               'qserv-partition-matches',
-               'qserv-duplicate',
-               'qserv-estimate-stats',
+for target in ('sph-htm-index',
+               'sph-partition',
+               'sph-partition-matches',
+               'sph-duplicate',
+               'sph-estimate-stats',
               ):
     source = ''.join(map(lambda s: s.title(), target.split('-'))) + '.cc'
     penv = env.Clone()
     penv.Append(LIBPATH=['.'])
-    penv.Prepend(LIBS=['dupr'])
+    penv.Prepend(LIBS=['partition'])
     program = penv.Program(target, [source])
     penv.Install('$PREFIX/bin', program)

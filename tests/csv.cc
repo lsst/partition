@@ -29,14 +29,13 @@
 
 #include "Csv.h"
 
-namespace csv = lsst::qserv::admin::dupr::csv;
 
 using std::runtime_error;
 using std::string;
 using std::vector;
 
-using csv::Dialect;
-using csv::Editor;
+using lsst::partition::csv::Dialect;
+using lsst::partition::csv::Editor;
 
 BOOST_AUTO_TEST_CASE(DialectTest) {
     char const X[2] = { '\n', '\r' };

@@ -23,8 +23,8 @@
 /// \file
 /// \brief Command-line utility functions.
 
-#ifndef LSST_QSERV_ADMIN_DUPR_CMDLINEUTILS_H
-#define LSST_QSERV_ADMIN_DUPR_CMDLINEUTILS_H
+#ifndef LSST_PARTITION_CMDLINEUTILS_H
+#define LSST_PARTITION_CMDLINEUTILS_H
 
 #include <set>
 #include <string>
@@ -39,9 +39,7 @@
 
 
 namespace lsst {
-namespace qserv {
-namespace admin {
-namespace dupr {
+namespace partition {
 
 /// Helper class for mapping field names to indexes. The `resolve` method
 /// checks that a field exists, and optionally that the field name has not
@@ -111,7 +109,7 @@ void ensureOutputFieldExists(boost::program_options::variables_map & vm,
 std::vector<int32_t> const chunksToDuplicate(
     Chunker const & chunker, boost::program_options::variables_map const & vm);
 
-}}}} // namespace lsst::qserv::admin::dupr
+}} // namespace lsst::partition
 
-#endif // LSST_QSERV_ADMIN_DUPR_CMDLINEUTILS_H
+#endif // LSST_PARTITION_CMDLINEUTILS_H
 

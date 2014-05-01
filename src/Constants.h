@@ -23,8 +23,8 @@
 /// \file
 /// \brief Broadly useful constants and defines.
 
-#ifndef LSST_QSERV_ADMIN_DUPR_CONSTANTS_H
-#define LSST_QSERV_ADMIN_DUPR_CONSTANTS_H
+#ifndef LSST_PARTITION_CONSTANTS_H
+#define LSST_PARTITION_CONSTANTS_H
 
 /// Maximum supported size of a line of text (bytes).
 #ifndef MAX_LINE_SIZE
@@ -47,9 +47,7 @@
 
 
 namespace lsst {
-namespace qserv {
-namespace admin {
-namespace dupr {
+namespace partition {
 
 size_t const MiB = 1024*1024;
 size_t const GiB = 1024*MiB;
@@ -61,7 +59,7 @@ double const EPSILON_DEG = 0.001 / 3600;                      ///< 1 mas
 /// Maximum HTM subdivision level such that an ID requires less than 32 bits.
 int const HTM_MAX_LEVEL = 13;
 
-}}}} // namespace lsst::qserv::admin::dupr
+}} // namespace lsst::partition
 
-#endif // LSST_QSERV_ADMIN_DUPR_CONSTANTS_H
+#endif // LSST_PARTITION_CONSTANTS_H
 

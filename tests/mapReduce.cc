@@ -34,10 +34,16 @@
 
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
-namespace dupr = lsst::qserv::admin::dupr;
+namespace csv = lsst::partition::csv;
 
 using std::string;
 using boost::shared_ptr;
+
+using lsst::partition::MiB;
+using lsst::partition::BufferedAppender;
+using lsst::partition::InputLines;
+using lsst::partition::Job;
+using lsst::partition::WorkerBase;
 
 namespace {
 
@@ -48,7 +54,7 @@ namespace {
     void buildInput(TempFile const & t1, TempFile const & t2) {
         char buf[17];
         unsigned int line;
-        dupr::BufferedAppender a(1*dupr::MiB);
+        BufferedAppender a(1*MiB);
         a.open(t1.path(), true);
         for (line = 0; line < NUM_LINES/3; ++line) {
             snprintf(buf, sizeof(buf), "%15u\n", NUM_LINES - 1 - line);
@@ -115,7 +121,7 @@ namespace {
         bool _failed;
     };
     
-    class Worker : public dupr::WorkerBase<Key, Lines> {
+    class Worker : public WorkerBase<Key, Lines> {
     public:
         Worker(po::variables_map const & vm) :
             _editor(vm), _lines(new Lines()) { }
@@ -141,15 +147,15 @@ namespace {
         shared_ptr<Lines> const result() { return _lines; }
 
         static void defineOptions(po::options_description & opts) {
-            dupr::csv::Editor::defineOptions(opts);
+            csv::Editor::defineOptions(opts);
         }
 
     private:
-        dupr::csv::Editor _editor;
+        csv::Editor _editor;
         shared_ptr<Lines> _lines;
     };
 
-    typedef dupr::Job<Worker> TestJob;
+    typedef Job<Worker> TestJob;
 
 } // unnamed namespace
 
@@ -177,7 +183,7 @@ BOOST_AUTO_TEST_CASE(MapReduceTest) {
             4, const_cast<char **>(argv), options), vm);
         po::notify(vm);
         TestJob job(vm);
-        dupr::InputLines input(paths, 1*dupr::MiB, false);
+        InputLines input(paths, 1*MiB, false);
         shared_ptr<Lines> lines = job.run(input);
         lines->verify();
     }

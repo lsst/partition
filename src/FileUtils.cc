@@ -40,9 +40,7 @@ namespace fs = boost::filesystem;
 
 
 namespace lsst {
-namespace qserv {
-namespace admin {
-namespace dupr {
+namespace partition {
 
 InputFile::InputFile(fs::path const & path) : _path(path), _fd(-1), _sz(-1) {
     char msg[1024];
@@ -208,4 +206,4 @@ void BufferedAppender::close() {
     }
 }
 
-}}}} // namespace lsst::qserv::admin::dupr
+}} // namespace lsst::partition

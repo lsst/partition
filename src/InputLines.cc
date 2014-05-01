@@ -55,9 +55,7 @@ namespace this_thread = boost::this_thread;
 
 
 namespace lsst {
-namespace qserv {
-namespace admin {
-namespace dupr {
+namespace partition {
 
 namespace {
 
@@ -330,4 +328,4 @@ CharPtrPair const InputLines::read(char * buf) {
     return _impl ? _impl->read(buf) : CharPtrPair(0, 0);
 }
 
-}}}} // namespace lsst::qserv::admin::dupr
+}} // namespace lsst::partition

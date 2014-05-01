@@ -19,8 +19,8 @@
  * the GNU General Public License along with this program.  If not,
  * see <http://www.lsstcorp.org/LegalNotices/>.
  */
-#ifndef LSST_QSERV_ADMIN_DUPR_INPUTLINES_H
-#define LSST_QSERV_ADMIN_DUPR_INPUTLINES_H
+#ifndef LSST_PARTITION_INPUTLINES_H
+#define LSST_PARTITION_INPUTLINES_H
 
 /// \file
 /// \brief A class for reading lines from a set of text files in parallel.
@@ -35,9 +35,7 @@
 
 
 namespace lsst {
-namespace qserv {
-namespace admin {
-namespace dupr {
+namespace partition {
 
 /// The InputLines class reads lines from a list of input text files in an IO
 /// efficient and parallel way. Each file is split up into blocks, where all
@@ -100,6 +98,6 @@ private:
     boost::shared_ptr<Impl> _impl;
 };
 
-}}}} // namespace lsst::qserv::admin::dupr
+}} // namespace lsst::partition
 
-#endif // LSST_QSERV_ADMIN_DUPR_INPUTLINES_H
+#endif // LSST_PARTITION_INPUTLINES_H

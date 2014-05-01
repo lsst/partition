@@ -24,8 +24,8 @@
 /// \brief A class for tracking the number of records in
 ///        the chunks and sub-chunks of a partitioned data-set.
 
-#ifndef LSST_QSERV_ADMIN_DUPR_CHUNKINDEX_H
-#define LSST_QSERV_ADMIN_DUPR_CHUNKINDEX_H
+#ifndef LSST_PARTITION_CHUNKINDEX_H
+#define LSST_PARTITION_CHUNKINDEX_H
 
 #include <stdint.h>
 #include <ostream>
@@ -39,9 +39,7 @@
 
 
 namespace lsst {
-namespace qserv {
-namespace admin {
-namespace dupr {
+namespace partition {
 
 /// A chunk index tracks how many records and overlap records are in each
 /// chunk and sub-chunk of a partitioned input data set. It also provides
@@ -209,6 +207,6 @@ inline std::ostream & operator<<(std::ostream & os, ChunkIndex const & idx) {
     return os;
 }
 
-}}}} // namespace lsst::qserv::admin::dupr
+}} // namespace lsst::partition
 
-#endif // LSST_QSERV_ADMIN_DUPR_CHUNKINDEX_H
+#endif // LSST_PARTITION_CHUNKINDEX_H

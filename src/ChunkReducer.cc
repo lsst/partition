@@ -40,9 +40,7 @@ using boost::make_shared;
 
 
 namespace lsst {
-namespace qserv {
-namespace admin {
-namespace dupr {
+namespace partition {
 
 ChunkReducer::ChunkReducer(po::variables_map const & vm) :
     _index(make_shared<ChunkIndex>()),
@@ -116,4 +114,4 @@ void ChunkReducer::_makeFilePaths(int32_t chunkId) {
     _overlapChunkPath = p / (_prefix + suffix);
 }
 
-}}}} // namespace lsst::qserv::admin::dupr
+}} // namespace lsst::partition

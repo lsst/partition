@@ -74,7 +74,7 @@ stores a precomputed amount of overlapping data along with each partition.
 The Partitioning Scheme
 -----------------------
 
-The celestial sphere is divided into latitude angle“stripes” of fixed height H.
+The celestial sphere is divided into latitude angle “stripes” of fixed height H.
 For each stripe, a width W is computed such that any two points in the stripe
 with longitude angles separated by at least W have angular separation of
 at least H. The stripe is then broken into an integral number of chunks of
@@ -189,7 +189,7 @@ Object movement
 The fact all tables will be partitioned according to `Object` RA/Dec implies
 that in rare cases when an object is close to the partition edge, some of its
 sources may end up in a partition that is different from the "natural" one for
-the source’s own ra/dec. To address this issue, the qserv master will expand
+the source’s own ra/dec. To address this issue, the Qserv master will expand
 the search region by an distance R when determining which partitions to query,
 where R is large enough to capture object motion for the duration of the LSST
 survey to date. The WHERE clause applied by Qserv workers to their `Source`

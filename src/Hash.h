@@ -23,15 +23,13 @@
 /// \file
 /// \brief Hashing functions.
 
-#ifndef LSST_QSERV_ADMIN_DUPR_HASH_H
-#define LSST_QSERV_ADMIN_DUPR_HASH_H
+#ifndef LSST_PARTITION_HASH_H
+#define LSST_PARTITION_HASH_H
 
 #include <stdint.h>
 
 namespace lsst {
-namespace qserv {
-namespace admin {
-namespace dupr {
+namespace partition {
 
 /// 32-bit integer hash function from Brett Mulvey.
 /// See http://home.comcast.net/~bretm/hash/4.html
@@ -60,6 +58,6 @@ inline uint64_t hash(uint64_t x) {
     return x;
 }
 
-}}}} // namespace lsst::qserv::admin::dupr
+}} // namespace lsst::partition
 
-#endif // LSST_QSERV_ADMIN_DUPR_HASH_H
+#endif // LSST_PARTITION_HASH_H

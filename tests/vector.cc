@@ -27,8 +27,8 @@
 #include "Vector.h"
 
 
-using lsst::qserv::admin::dupr::Vector3d;
-using lsst::qserv::admin::dupr::Matrix3d;
+using lsst::partition::Vector3d;
+using lsst::partition::Matrix3d;
 
 
 namespace {

@@ -21,7 +21,7 @@
  */
 
 /// \file
-/// \brief The Qserv partitioner for tables which have a single
+/// \brief The partitioner for tables which have a single
 ///        partitioning position.
 
 #include <iostream>
@@ -55,9 +55,7 @@ namespace po = boost::program_options;
 
 
 namespace lsst {
-namespace qserv {
-namespace admin {
-namespace dupr {
+namespace partition {
 
 class Worker : public ChunkReducer {
 public:
@@ -149,16 +147,16 @@ void Worker::defineOptions(po::options_description & opts) {
 
 typedef Job<Worker> PartitionJob;
 
-}}}} // namespace lsst::qserv::admin::dupr
+}} // namespace lsst::partition
 
 
 static char const * help =
-    "The Qserv partitioner partitions one or more input CSV files in\n"
-    "preparation for loading by Qserv worker nodes. This boils down to\n"
+    "The spherical partitioner partitions one or more input CSV files in\n"
+    "preparation for loading into database worker nodes. This boils down to\n"
     "assigning each input position to locations in a 2-level subdivision\n"
     "scheme, where a location consists of a chunk and sub-chunk ID, and\n"
     "then bucket-sorting input records into output files by chunk ID.\n"
-    "Chunk files can then be distributed to Qserv worker nodes for loading.\n"
+    "Chunk files can then be distributed to worker nodes for loading.\n"
     "\n"
     "A partitioned data-set can be built-up incrementally by running the\n"
     "partitioner with disjoint input file sets and the same output directory.\n"
@@ -169,18 +167,18 @@ static char const * help =
     "chunk files will be corrupt and/or useless.\n";
 
 int main(int argc, char const * const * argv) {
-    namespace dupr = lsst::qserv::admin::dupr;
+    namespace part = lsst::partition;
 
     try {
         po::options_description options;
-        dupr::PartitionJob::defineOptions(options);
+        part::PartitionJob::defineOptions(options);
         po::variables_map vm;
-        dupr::parseCommandLine(vm, options, argc, argv, help);
-        dupr::ensureOutputFieldExists(vm, "part.chunk");
-        dupr::ensureOutputFieldExists(vm, "part.sub-chunk");
-        dupr::makeOutputDirectory(vm, true);
-        dupr::PartitionJob job(vm);
-        shared_ptr<dupr::ChunkIndex> index = job.run(dupr::makeInputLines(vm));
+        part::parseCommandLine(vm, options, argc, argv, help);
+        part::ensureOutputFieldExists(vm, "part.chunk");
+        part::ensureOutputFieldExists(vm, "part.sub-chunk");
+        part::makeOutputDirectory(vm, true);
+        part::PartitionJob job(vm);
+        shared_ptr<part::ChunkIndex> index = job.run(part::makeInputLines(vm));
         if (!index->empty()) {
             fs::path d(vm["out.dir"].as<string>());
             fs::path f = vm["part.prefix"].as<string>() + "_index.bin";

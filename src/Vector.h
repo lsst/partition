@@ -28,16 +28,14 @@
 /// of the Eigen Vector3d/Matrix3d APIs, which should make switching to that
 /// library easy if more advanced functionality becomes necessary.
 
-#ifndef LSST_QSERV_ADMIN_DUPR_VECTOR_H
-#define LSST_QSERV_ADMIN_DUPR_VECTOR_H
+#ifndef LSST_PARTITION_VECTOR_H
+#define LSST_PARTITION_VECTOR_H
 
 #include <cmath>
 
 
 namespace lsst {
-namespace qserv {
-namespace admin {
-namespace dupr {
+namespace partition {
 
 /// A 3-component column vector.
 class Vector3d {
@@ -162,7 +160,7 @@ private:
     Vector3d _col[3]; ///< Matrix columns.
 };
 
-}}}} // namespace lsst::qserv::admin::dupr
+}} // namespace lsst::partition
 
-#endif // LSST_QSERV_ADMIN_DUPR_VECTOR_H
+#endif // LSST_PARTITION_VECTOR_H
 

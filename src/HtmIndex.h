@@ -24,8 +24,8 @@
 /// \brief A class for tracking the number and size of records in
 ///        the triangles of a Hierarchical Triangular Mesh.
 
-#ifndef LSST_QSERV_ADMIN_DUPR_HTMINDEX_H
-#define LSST_QSERV_ADMIN_DUPR_HTMINDEX_H
+#ifndef LSST_PARTITION_HTMINDEX_H
+#define LSST_PARTITION_HTMINDEX_H
 
 #include <stdint.h>
 #include <ostream>
@@ -36,9 +36,7 @@
 
 
 namespace lsst {
-namespace qserv {
-namespace admin {
-namespace dupr {
+namespace partition {
 
 /// An HTM index tracks how many records of an input data set are contained
 /// in all HTM triangles of a given subdivision level L. It also provides a
@@ -125,6 +123,6 @@ inline std::ostream & operator<<(std::ostream & os, HtmIndex const & idx) {
     return os;
 }
 
-}}}} // namespace lsst::qserv::admin::dupr
+}} // namespace lsst::partition
 
-#endif // LSST_QSERV_ADMIN_DUPR_HTMINDEX_H
+#endif // LSST_PARTITION_HTMINDEX_H

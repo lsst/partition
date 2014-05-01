@@ -23,8 +23,8 @@
 /// \file
 /// \brief Map-reduce processing framework for command line applications.
 
-#ifndef LSST_QSERV_ADMIN_DUPR_MAPREDUCE_H
-#define LSST_QSERV_ADMIN_DUPR_MAPREDUCE_H
+#ifndef LSST_PARTITION_MAPREDUCE_H
+#define LSST_PARTITION_MAPREDUCE_H
 
 #include <sys/types.h>
 #include <stdint.h>
@@ -48,9 +48,7 @@
 
 
 namespace lsst {
-namespace qserv {
-namespace admin {
-namespace dupr {
+namespace partition {
 
 /// A line of CSV formatted text at most MAX_LINE_SIZE characters long
 /// and a key of copy-constructible and less-than comparable type K.
@@ -83,7 +81,7 @@ struct Record {
 template <typename K>
 class Silo {
 public:
-    typedef dupr::Record<K> Record;
+    typedef partition::Record<K> Record;
 
     // The allocation granularity. It is many times larger than the maximum
     // line size, making allocation infrequent and minimizing waste (one
@@ -306,7 +304,7 @@ template <typename KeyT, typename ResultT>
 struct WorkerBase {
     typedef KeyT Key;
     typedef ResultT Result;
-    typedef dupr::Silo<KeyT> Silo;
+    typedef partition::Silo<KeyT> Silo;
     typedef typename std::vector<Record<KeyT> >::const_iterator RecordIter;
 };
 
@@ -373,7 +371,7 @@ namespace detail {
         typedef typename Worker::Key Key;
         typedef detail::SortedRecordRange<Key> SortedRecordRange;
         typedef typename SortedRecordRange::RecordIter RecordIter;
-        typedef dupr::Silo<Key> Silo;
+        typedef partition::Silo<Key> Silo;
         typedef boost::shared_ptr<Silo> SiloPtr;
         typedef detail::SiloPtrCmp<Key> SiloPtrCmp;
         typedef typename std::vector<SiloPtr>::const_iterator SiloPtrIter;
@@ -748,6 +746,6 @@ public:
         detail::JobImpl<WorkerT, typename WorkerT::Result>(vm) { }
 };
 
-}}}} // namespace lsst::qserv::admin::dupr
+}} // namespace lsst::partition
 
-#endif // LSST_QSERV_ADMIN_DUPR_PROCESSINGFRAMEWORK_H
+#endif // LSST_PARTITION_PROCESSINGFRAMEWORK_H

@@ -32,14 +32,13 @@
 #include "TempFile.h"
 
 namespace fs = boost::filesystem;
-namespace dupr = lsst::qserv::admin::dupr;
 
 using std::exception;
 using std::sqrt;
 using std::vector;
 
-using dupr::ChunkIndex;
-using dupr::ChunkLocation;
+using lsst::partition::ChunkIndex;
+using lsst::partition::ChunkLocation;
 
 namespace {
     bool operator==(ChunkIndex::Entry const & e1,

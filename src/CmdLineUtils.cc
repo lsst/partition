@@ -147,7 +147,7 @@ namespace {
     Parser::Parser(fs::path const & path, char keySeparator) :
         _path(path), _data(0), _cur(0), _end(0), _sep(keySeparator)
     {
-        lsst::qserv::admin::dupr::InputFile f(path);
+        lsst::partition::InputFile f(path);
         // FIXME(smm): check that cast doesn't truncate 
         size_t sz = static_cast<size_t>(f.size());
         _data = static_cast<char *>(malloc(sz));
@@ -386,9 +386,7 @@ namespace {
 
 
 namespace lsst {
-namespace qserv {
-namespace admin {
-namespace dupr {
+namespace partition {
 
 FieldNameResolver::~FieldNameResolver() {
     _editor = 0;
@@ -627,4 +625,4 @@ vector<int32_t> const chunksToDuplicate(Chunker const & chunker,
     return chunker.getChunksIn(region, node, numNodes);
 }
 
-}}}} // namespace lsst::qserv::admin::dupr
+}} // namespace lsst::partition

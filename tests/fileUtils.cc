@@ -27,7 +27,9 @@
 #include "FileUtils.h"
 #include "TempFile.h"
 
-namespace dupr = lsst::qserv::admin::dupr;
+using lsst::partition::BufferedAppender;
+using lsst::partition::InputFile;
+using lsst::partition::OutputFile;
 
 BOOST_AUTO_TEST_CASE(FileTest) {
     uint8_t buf1[16], buf2[16];
@@ -35,16 +37,16 @@ BOOST_AUTO_TEST_CASE(FileTest) {
         buf1[i] = i;
     }
     TempFile t;
-    dupr::OutputFile of1(t.path(), true);
-    dupr::InputFile if1(t.path());
+    OutputFile of1(t.path(), true);
+    InputFile if1(t.path());
     BOOST_CHECK_EQUAL(if1.size(), 0);
     of1.append(buf1, 8);
     if1.read(buf2, 0, 8);
-    dupr::OutputFile of2(t.path(), false);
+    OutputFile of2(t.path(), false);
     of2.append(buf1 + 8, 8);
     if1.read(buf2 + 8, 8, 8);
     BOOST_CHECK(memcmp(buf1, buf2, sizeof(buf1)) == 0);
-    dupr::InputFile if2(t.path());
+    InputFile if2(t.path());
     BOOST_CHECK_EQUAL(if2.size(), static_cast<int>(sizeof(buf1)));
 }
 
@@ -55,7 +57,7 @@ BOOST_AUTO_TEST_CASE(BufferedAppenderTest) {
     }
     TempFile t1, t2;
     {
-        dupr::BufferedAppender b(48);
+        BufferedAppender b(48);
         b.open(t1.path(), false);
         b.append(buf1, 48);
         b.append(buf1 + 48, 49);
@@ -65,8 +67,8 @@ BOOST_AUTO_TEST_CASE(BufferedAppenderTest) {
         b.append(buf1 + 144, 32);
         b.append(buf1 + 176, 80);
     }
-    dupr::InputFile if1(t1.path());
-    dupr::InputFile if2(t2.path());
+    InputFile if1(t1.path());
+    InputFile if2(t2.path());
     BOOST_CHECK_EQUAL(if1.size(), 128);
     BOOST_CHECK_EQUAL(if2.size(), 128);
     if1.read(buf2, 0, 128);

@@ -23,8 +23,8 @@
 /// \file
 /// \brief Reading and writing of CSV-like data formats.
 
-#ifndef LSST_QSERV_ADMIN_DUPR_CSV_CSV_H
-#define LSST_QSERV_ADMIN_DUPR_CSV_CSV_H
+#ifndef LSST_PARTITION_CSV_CSV_H
+#define LSST_PARTITION_CSV_CSV_H
 
 #include <sys/types.h>
 #include <stdint.h>
@@ -44,9 +44,7 @@
 
 
 namespace lsst {
-namespace qserv {
-namespace admin {
-namespace dupr {
+namespace partition {
 
 namespace csv {
 
@@ -394,6 +392,6 @@ template <> inline std::string Editor::get<std::string>(int i) const {
 
 } // namespace csv
 
-}}}} // namespace lsst::qserv::admin::dupr
+}} // namespace lsst::partition
 
-#endif // LSST_QSERV_ADMIN_DUPR_CSV_CSV_H
+#endif // LSST_PARTITION_CSV_CSV_H
