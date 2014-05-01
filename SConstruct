@@ -38,21 +38,11 @@ def checkBoost(lib, conf):
     return (conf.CheckLib('boost_' + lib + '-mt', language='C++') or
             conf.CheckLib('boost_' + lib, language='C++'))
 
-def CheckFlag(ctx, flag):
-    ctx.Message('Checking for ' + flag + ' flag... ')
-    ccflags = ctx.env['CCFLAGS']
-    ctx.env.Append(CCFLAGS=flag)
-    r = ctx.TryCompile('int main() { return 0; }', extension='.cc')
-    if not r:
-        ctx.env['CCFLAGS'] = ccflags
-    ctx.Result(r)
-
 if not GetOption('help'):
     if not GetOption('clean'):
-        conf = Configure(env, custom_tests = {'CheckFlag': CheckFlag})
+        conf = Configure(env)
         if filter(lambda l: not checkBoost(l, conf), boostLibs):
             print >> sys.stderr, 'Missing required boost library!'
             Exit(1)
-        conf.CheckFlag('-Wno-unused-local-typedefs')
         env=conf.Finish()
     SConscript(dirs='.', variant_dir=variant_dir, exports='env')
