@@ -1,1 +1,2 @@
 envPrepend(PATH, ${PRODUCT_DIR}/bin)
+setupRequired(scons)
