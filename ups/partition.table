@@ -1,2 +1,3 @@
 envPrepend(PATH, ${PRODUCT_DIR}/bin)
+setupRequired(boost)
 setupRequired(scons)
