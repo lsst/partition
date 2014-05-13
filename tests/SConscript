@@ -45,4 +45,4 @@ testEnv.Prepend(LIBS=['partition'])
 testEnv.Append(BUILDERS={'Test': Builder(action=runTest, suffix='.test')})
 
 for source in testEnv.Glob('*.cc'):
-    testEnv.Test(testEnv.Program(source))
+    Default(testEnv.Test(testEnv.Program(source)))

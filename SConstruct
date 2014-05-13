@@ -1,39 +1,46 @@
 # -*- python -*-
 import os, sys
-import SCons.Script
 
-env = Environment()
-opts = SCons.Script.Variables("custom.py")
-opts.AddVariables(
-          (PathVariable('prefix', 'Installation prefix', "build", PathVariable.PathIsDirCreate))
-)
+# Command line options
+BOOST_DIR = os.environ.get('BOOST_DIR')
+BOOST_INC = None
+BOOST_LIB = None
+if BOOST_DIR:
+    BOOST_INC = os.path.join(BOOST_DIR, 'include')
+    BOOST_LIB = os.path.join(BOOST_DIR, 'lib')
+vars = Variables("custom.py")
+vars.AddVariables(PathVariable('prefix', 'Installation prefix', '.', PathVariable.PathIsDirCreate),
+                  BoolVariable('debug', 'Debug build?', 0),
+                  PathVariable('BOOST_INC', 'Boost include directory', BOOST_INC, PathVariable.PathIsDir),
+                  PathVariable('BOOST_LIB', 'Boost library directory', BOOST_LIB, PathVariable.PathIsDir),
+                 )
 
-opts.Update(env)
+# Build environment setup
+env = Environment(variables=vars)
+env.Help("Spherical data partitioning and duplication utilities.")
 
-# TODO: use Variables instead?
-AddOption('--debug-build', dest='debug_build', action='store_true',
-          default=False, help='Debug build')
-AddOption('--boost-includes', dest='boost_includes', metavar='DIR',
-          help='Boost include directory')
-AddOption('--boost-libs', dest='boost_libs', metavar='DIR',
-          help='Boost library directory')
-
-env['ENV']['PATH'] = os.environ['PATH']
-
-env.Append(CPPPATH=[GetOption('boost_includes')])
-env.Append(LIBPATH=[GetOption('boost_libs')])
-env.Append(RPATH=[GetOption('boost_libs')])
+if env.get('BOOST_INC'):
+    BOOST_INC = env['BOOST_INC']
+    if not os.path.isabs(BOOST_INC):
+        BOOST_INC = os.path.normpath(os.path.join(GetLaunchDir(), BOOST_INC))
+    env.Append(CPPPATH=[BOOST_INC])
+if env.get('BOOST_LIB'):
+    BOOST_LIB = env['BOOST_LIB']
+    if not os.path.isabs(BOOST_LIB):
+        BOOST_LIB = os.path.normpath(os.path.join(GetLaunchDir(), BOOST_LIB))
+    env.Append(LIB_PATH=[BOOST_LIB])
+    env.Append(RPATH=[BOOST_LIB])
 env.Append(CCFLAGS=['-g', '-Wall', '-Wextra'])
-if GetOption('debug_build'):
+if env['debug']:
     variant_dir = 'build/debug'
 else:
     variant_dir = 'build/release'
     env.Append(CCFLAGS=['-O2'])
-env.Alias('install', ['$prefix/bin', '$prefix/ups'])
-env.Install('$prefix/ups', 'ups/partition.table')
+if not os.path.isabs(env['prefix']):
+    # `scons prefix=<dir> install` seems buggy when <dir> is relative
+    env['prefix'] = os.path.normpath(os.path.join(GetLaunchDir(), env['prefix']))
 
-env.Help("Spherical data partitioning and duplication utilities.")
-
+# Check for required boost libraries
 boostLibs = ['system',
              'thread',
              'filesystem',
@@ -51,4 +58,9 @@ if not GetOption('help'):
             print >> sys.stderr, 'Missing required boost library!'
             Exit(1)
         env=conf.Finish()
+
+env.Alias('install', ['$prefix/bin', '$prefix/ups'])
+
+# Recurse
+if not GetOption('help'):
     SConscript(dirs='.', variant_dir=variant_dir, exports='env')

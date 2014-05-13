@@ -16,4 +16,5 @@ for target in ('sph-htm-index',
     penv.Append(LIBPATH=['.'])
     penv.Prepend(LIBS=['partition'])
     program = penv.Program(target, [source])
+    Default(program)
     penv.Install('$prefix/bin', program)
