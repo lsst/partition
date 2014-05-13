@@ -1,7 +1,7 @@
 # -*- python -*-
 from __future__ import with_statement
 import os, subprocess, sys
-Import('env')
+from lsst.sconsUtils import env
 
 # If terminal supports colored text, use it for test-case PASS/FAIL messages.
 def _run(cmd):
@@ -32,17 +32,12 @@ def runTest(target, source, env):
     return retcode
 
 testEnv = env.Clone()
-if not GetOption('help') and not GetOption('clean'):
-    conf = Configure(testEnv)
-    if not (conf.CheckLib('boost_unit_test_framework-mt', language='C++') or
-            conf.CheckLib('boost_unit_test_framework', language='C++')):
-        print >> sys.stderr, 'Missing required boost library!'
-        Exit(1)
-    testEnv=conf.Finish()
 testEnv.Append(CPPPATH=['../src'])
 testEnv.Append(LIBPATH=['../src'])
-testEnv.Prepend(LIBS=['partition'])
+# retrieving libs with sconsUtils
+libs=['partition']+env.getLibs("main")+env.getLibs("test")
+testEnv.Prepend(LIBS=(libs))
 testEnv.Append(BUILDERS={'Test': Builder(action=runTest, suffix='.test')})
 
 for source in testEnv.Glob('*.cc'):
-    testEnv.Test(testEnv.Program(source))
+    Default(testEnv.Test(testEnv.Program(source)))

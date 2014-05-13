@@ -1,5 +1,5 @@
 # -*- python -*-
-Import('env')
+from lsst.sconsUtils import env
 
 lenv = env.Clone()
 sources = lenv.Glob('[!S]*.cc')
@@ -14,6 +14,9 @@ for target in ('sph-htm-index',
     source = ''.join(map(lambda s: s.title(), target.split('-'))) + '.cc'
     penv = env.Clone()
     penv.Append(LIBPATH=['.'])
-    penv.Prepend(LIBS=['partition'])
+    # retrieving libs with sconsUtils
+    libs=['partition']+env.getLibs("main")
+    penv.Prepend(LIBS=(libs))
     program = penv.Program(target, [source])
+    Default(program)
     penv.Install('$prefix/bin', program)
