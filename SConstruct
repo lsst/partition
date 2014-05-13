@@ -28,7 +28,7 @@ if env.get('BOOST_LIB'):
     BOOST_LIB = env['BOOST_LIB']
     if not os.path.isabs(BOOST_LIB):
         BOOST_LIB = os.path.normpath(os.path.join(GetLaunchDir(), BOOST_LIB))
-    env.Append(LIB_PATH=[BOOST_LIB])
+    env.Append(LIBPATH=[BOOST_LIB])
     env.Append(RPATH=[BOOST_LIB])
 env.Append(CCFLAGS=['-g', '-Wall', '-Wextra'])
 if env['debug']:
