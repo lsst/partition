@@ -1,7 +1,7 @@
 # -*- python -*-
 from __future__ import with_statement
 import os, subprocess, sys
-Import('env')
+from lsst.sconsUtils import env
 
 # If terminal supports colored text, use it for test-case PASS/FAIL messages.
 def _run(cmd):
@@ -34,7 +34,9 @@ def runTest(target, source, env):
 testEnv = env.Clone()
 testEnv.Append(CPPPATH=['../src'])
 testEnv.Append(LIBPATH=['../src'])
-testEnv.Prepend(LIBS=['partition'])
+# retrieving libs with sconsUtils
+libs=['partition']+env.getLibs("main")+env.getLibs("test")
+testEnv.Prepend(LIBS=(libs))
 testEnv.Append(BUILDERS={'Test': Builder(action=runTest, suffix='.test')})
 
 for source in testEnv.Glob('*.cc'):
