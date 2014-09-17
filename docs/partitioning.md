@@ -166,22 +166,23 @@ equi-join between U, M and V can be decomposed into the union of
 ~~~sql
     (
         SELECT ...
-        FROM U_p INNER JOIN M_p ON (U_p.pk = M_p.fk_u)
-                 INNER JOIN V_p ON (M_p.fk_v = V_p.pk)
+        FROM U_p INNER JOIN M_c ON (U_p.pk = M_c.fk_u)
+                 INNER JOIN V_p ON (M_c.fk_v = V_p.pk)
         WHERE ...
     ) UNION ALL (
         SELECT ...
-        FROM U_p INNER JOIN M_p ON (U_p.pk = M_p.fk_u)
-                 INNER JOIN OV_p ON (M_p.fk_v = OV_p.pk)
+        FROM U_p INNER JOIN M_c ON (U_p.pk = M_c.fk_u)
+                 INNER JOIN OV_p ON (M_c.fk_v = OV_p.pk)
         WHERE ...
     )
 ~~~
 
-U_p, M_p and V_p correspond to the subchunk p of tables U, M and V.
-OV_p is the subset of V containing points in the full overlap region of
-subchunk p. Note that queries which involve only the match table need to be
-rewritten to discard duplicates, since a match pair linking positions in two
-different sub-chunks will be stored twice (once in each sub-chunk).
+U_p and V_p correspond to the subchunk p of chunk c of tables U and V. M_c
+corresponds to chunk c of table M, and OV_p is the subset of V containing
+points in the full overlap region of subchunk p. Note that queries which
+involve only the match table need to be rewritten to discard duplicates,
+since a match pair linking positions in two different chunks will be stored
+twice (once in each chunk).
 
 Object movement
 ---------------

@@ -25,25 +25,26 @@
 ///
 /// A match table M contains foreign keys into a pair of identically partitioned
 /// positional tables U and V (containing e.g. objects and reference objects).
-/// A match in M is assigned to a partition P if either of the positions pointed
-/// to is assigned to P. If no positions in a match are separated by more than the
+/// A match in M is assigned to a chunk C if either of the positions pointed
+/// to is assigned to C. If no positions in a match are separated by more than the
 /// partitioning overlap radius, then a 3-way equi-join between U, M and V can
-/// be decomposed into the union of 3-way joins over the set of partitions P:
+/// be decomposed into the union of 3-way joins over the set of sub-chunks:
 ///
 ///     (
 ///         SELECT ...
-///         FROM Uᵨ INNER JOIN Mᵨ ON (Uᵨ.pk = Mᵨ.fkᵤ)
-///                 INNER JOIN Vᵨ ON (Mᵨ.fkᵥ = Vᵨ.pk)
+///         FROM Uᵢ INNER JOIN Mᵨ ON (Uᵢ.pk = Mᵨ.fkᵤ)
+///                 INNER JOIN Vᵢ ON (Mᵨ.fkᵥ = Vᵢ.pk)
 ///         WHERE ...
 ///     ) UNION ALL (
 ///         SELECT ...
-///         FROM Uᵨ INNER JOIN Mᵨ ON (Uᵨ.pk = Mᵨ.fkᵤ)
-///                 INNER JOIN OVᵨ ON (Mᵨ.fkᵥ = OVᵨ.pk)
+///         FROM Uᵢ INNER JOIN Mᵨ ON (Uᵢ.pk = Mᵨ.fkᵤ)
+///                 INNER JOIN OVᵢ ON (Mᵨ.fkᵥ = OVᵢ.pk)
 ///         WHERE ...
 ///     )
 ///
-/// Here, Uᵨ, Mᵨ and Vᵨ are the contents of U, M and V for partition p, and
-/// OVᵨ is the subset of V \ Vᵨ within the overlap radius of Vᵨ.
+/// Here, Uᵢ and Vᵢ contain the rows of U and V in sub-chunk i of chunk p,
+/// Mᵨ contains the rows of M in chunk p, and OVᵢ is the subset of V \ Vᵢ
+/// within the overlap radius of Vᵢ.
 
 #include <cstdio>
 #include <iostream>
@@ -207,9 +208,8 @@ void Worker::map(char const * const begin,
                                         "are separated by more than the overlap "
                                         "radius.");
                 }
-                if (loc1.chunkId == loc2.chunkId &&
-                    loc1.subChunkId == loc2.subChunkId) {
-                    // Both positions are in the same partitioning location.
+                if (loc1.chunkId == loc2.chunkId) {
+                    // Both positions are in the same chunk.
                     _editor.set(_flagsField, '3');
                     silo.add(loc1, _editor);
                     continue;
