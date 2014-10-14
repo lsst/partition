@@ -300,7 +300,7 @@ CharPtrPair const InputLines::Impl::read(char * buf) {
         }
     }
     // All lines have been read.
-    return CharPtrPair(0, 0);
+    return CharPtrPair(static_cast<char *>(0), static_cast<char *>(0));
 }
 
 
@@ -325,7 +325,10 @@ bool InputLines::empty() const {
 }
 
 CharPtrPair const InputLines::read(char * buf) {
-    return _impl ? _impl->read(buf) : CharPtrPair(0, 0);
+    if (_impl) {
+         return _impl->read(buf);
+    }
+    return CharPtrPair(static_cast<char *>(0), static_cast<char *>(0));
 }
 
 }} // namespace lsst::partition
