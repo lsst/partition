@@ -39,17 +39,6 @@
 #include "CmdLineUtils.h"
 #include "Csv.h"
 
-using std::cerr;
-using std::cout;
-using std::endl;
-using std::exception;
-using std::pair;
-using std::runtime_error;
-using std::string;
-using std::vector;
-
-using boost::shared_ptr;
-
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
 
@@ -69,11 +58,11 @@ public:
 
 private:
     csv::Editor _editor;
-    pair<int,int> _pos;
+    std::pair<int,int> _pos;
     int _chunkIdField;
     int _subChunkIdField;
     Chunker _chunker;
-    vector<ChunkLocation> _locations;
+    std::vector<ChunkLocation> _locations;
 };
 
 Worker::Worker(po::variables_map const & vm) :
@@ -86,18 +75,18 @@ Worker::Worker(po::variables_map const & vm) :
 {
     // Map field names of interest to field indexes.
     if (vm.count("part.pos") == 0) {
-        throw runtime_error("The --part.pos option was not specified.");
+        throw std::runtime_error("The --part.pos option was not specified.");
     }
     FieldNameResolver fields(_editor);
-    string s = vm["part.pos"].as<string>();
-    pair<string,string> p = parseFieldNamePair("part.pos", s);
+    std::string s = vm["part.pos"].as<std::string>();
+    std::pair<std::string, std::string> p = parseFieldNamePair("part.pos", s);
     _pos.first = fields.resolve("part.pos", s, p.first);
     _pos.second = fields.resolve("part.pos", s, p.second);
     if (vm.count("part.chunk") != 0) {
-        s = vm["part.chunk"].as<string>();
+        s = vm["part.chunk"].as<std::string>();
         _chunkIdField = fields.resolve("part.chunk", s);
     }
-    s = vm["part.sub-chunk"].as<string>();
+    s = vm["part.sub-chunk"].as<std::string>();
     _subChunkIdField = fields.resolve("part.sub-chunk", s);
 }
 
@@ -105,8 +94,8 @@ void Worker::map(char const * const begin,
                  char const * const end,
                  Worker::Silo & silo)
 {
-    typedef vector<ChunkLocation>::const_iterator LocIter;
-    pair<double, double> sc;
+    typedef std::vector<ChunkLocation>::const_iterator LocIter;
+    std::pair<double, double> sc;
     char const * cur = begin;
     while (cur < end) {
         cur = _editor.readRecord(cur, end);
@@ -127,15 +116,19 @@ void Worker::map(char const * const begin,
 void Worker::defineOptions(po::options_description & opts) {
     po::options_description part("\\_______________ Partitioning", 80);
     part.add_options()
-        ("part.prefix", po::value<string>()->default_value("chunk"),
+        ("part.prefix",
+         po::value<std::string>()->default_value("chunk"),
          "Chunk file name prefix.")
-        ("part.chunk", po::value<string>(),
+        ("part.chunk",
+         po::value<std::string>(),
          "Optional chunk ID output field name. This field name is appended "
          "to the output field name list if it isn't already included.")
-        ("part.sub-chunk", po::value<string>()->default_value("subChunkId"),
+        ("part.sub-chunk",
+         po::value<std::string>()->default_value("subChunkId"),
          "Sub-chunk ID output field name. This field field name is appended "
          "to the output field name list if it isn't already included.")
-        ("part.pos", po::value<string>(),
+        ("part.pos",
+         po::value<std::string>(),
          "The partitioning longitude and latitude angle field names, "
          "separated by a comma.");
     Chunker::defineOptions(part);
@@ -178,20 +171,21 @@ int main(int argc, char const * const * argv) {
         part::ensureOutputFieldExists(vm, "part.sub-chunk");
         part::makeOutputDirectory(vm, true);
         part::PartitionJob job(vm);
-        shared_ptr<part::ChunkIndex> index = job.run(part::makeInputLines(vm));
+        boost::shared_ptr<part::ChunkIndex> index =
+            job.run(part::makeInputLines(vm));
         if (!index->empty()) {
-            fs::path d(vm["out.dir"].as<string>());
-            fs::path f = vm["part.prefix"].as<string>() + "_index.bin";
+            fs::path d(vm["out.dir"].as<std::string>());
+            fs::path f = vm["part.prefix"].as<std::string>() + "_index.bin";
             index->write(d / f, false);
         }
         if (vm.count("verbose") != 0) {
-            index->write(cout, 0);
-            cout << endl;
+            index->write(std::cout, 0);
+            std::cout << std::endl;
         } else {
-            cout << *index << endl;
+            std::cout << *index << std::endl;
         }
-    } catch (exception const & ex) {
-        cerr << ex.what() << endl;
+    } catch (std::exception const & ex) {
+        std::cerr << ex.what() << std::endl;
         return EXIT_FAILURE;
     }
     return EXIT_SUCCESS;

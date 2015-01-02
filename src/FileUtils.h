@@ -144,7 +144,7 @@ inline uint8_t * encode(uint8_t * buf, uint64_t x) {
     return buf + 8;
 }
 
-template <typename T> inline T decode(uint8_t const * buf) {
+template <typename T> inline T decode(uint8_t const *) {
     BOOST_STATIC_ASSERT(sizeof(T) == 0);
 }
 /// Decode a little-endian sequence of 4 bytes to a 32-bit integer.

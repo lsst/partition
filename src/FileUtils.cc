@@ -34,8 +34,6 @@
 
 #include <stdexcept>
 
-using std::runtime_error;
-
 namespace fs = boost::filesystem;
 
 
@@ -48,12 +46,14 @@ InputFile::InputFile(fs::path const & path) : _path(path), _fd(-1), _sz(-1) {
     int fd = ::open(path.string().c_str(), O_RDONLY);
     if (fd == -1) {
         ::strerror_r(errno, msg, sizeof(msg));
-        throw runtime_error("open() failed [" + path.string() + "]: " + msg);
+        throw std::runtime_error("open() failed [" + path.string() + "]: " +
+                                 msg);
     }
     if (::fstat(fd, &st) != 0) {
         ::strerror_r(errno, msg, sizeof(msg));
         ::close(fd);
-        throw runtime_error("fstat() failed [" + path.string() + "]: " + msg);
+        throw std::runtime_error("fstat() failed [" + path.string() + "]: " +
+                                 msg);
     }
     _fd = fd;
     _sz = st.st_size;
@@ -75,12 +75,12 @@ void InputFile::read(void * buf, off_t off, size_t sz) const {
     while (sz > 0) {
         ssize_t n = ::pread(_fd, cur, sz, off);
         if (n == 0) {
-            throw runtime_error("pread() received EOF [" + _path.string() +
-                                "]");
+            throw std::runtime_error("pread() received EOF [" + _path.string() +
+                                     "]");
         } else if (n < 0 && errno != EINTR) {
             ::strerror_r(errno, msg, sizeof(msg));
-            throw runtime_error("pread() failed [" + _path.string() +
-                                "]: " + msg);
+            throw std::runtime_error("pread() failed [" + _path.string() +
+                                     "]: " + msg);
         } else if (n > 0) {
             sz -= static_cast<size_t>(n);
             off += n;
@@ -102,14 +102,15 @@ OutputFile::OutputFile(fs::path const & path, bool truncate) :
                     S_IROTH | S_IRGRP | S_IRUSR | S_IWUSR);
     if (fd == -1) {
         ::strerror_r(errno, msg, sizeof(msg));
-        throw runtime_error("open() failed [" + path.string() + "]: " + msg);
+        throw std::runtime_error("open() failed [" + path.string() + "]: " +
+                                 msg);
     }
     if (!truncate) {
         if (::lseek(fd, 0, SEEK_END) < 0) {
             ::strerror_r(errno, msg, sizeof(msg));
             close(fd);
-            throw runtime_error("lseek() failed [" + path.string() +
-                                "]: " + msg);
+            throw std::runtime_error("lseek() failed [" + path.string() +
+                                     "]: " + msg);
         }
     }
     _fd = fd;
@@ -136,8 +137,8 @@ void OutputFile::append(void const * buf, size_t sz) {
         if (n < 0) {
             if (errno != EINTR) {
                 ::strerror_r(errno, msg, sizeof(msg));
-                throw runtime_error("write() failed [" + _path.string() +
-                                    "]: " + msg);
+                throw std::runtime_error("write() failed [" + _path.string() +
+                                         "]: " + msg);
             }
         } else {
             sz -= static_cast<size_t>(n);

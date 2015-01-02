@@ -33,27 +33,22 @@
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
 
-using std::runtime_error;
-using std::snprintf;
-using std::string;
-using boost::make_shared;
-
 
 namespace lsst {
 namespace partition {
 
 ChunkReducer::ChunkReducer(po::variables_map const & vm) :
-    _index(make_shared<ChunkIndex>()),
+    _index(boost::make_shared<ChunkIndex>()),
     _chunkId(-1),
     _numNodes(vm["out.num-nodes"].as<uint32_t>()),
-    _prefix(vm["part.prefix"].as<string>().c_str()), // defend against GCC PR21334
-    _outputDir(vm["out.dir"].as<string>().c_str()),  // defend against GCC PR21334
+    _prefix(vm["part.prefix"].as<std::string>().c_str()), // defend against GCC PR21334
+    _outputDir(vm["out.dir"].as<std::string>().c_str()),  // defend against GCC PR21334
     _chunkAppender(vm["mr.block-size"].as<size_t>()*MiB),
     _overlapChunkAppender(vm["mr.block-size"].as<size_t>()*MiB)
 {
     if (_numNodes == 0 || _numNodes > 99999u) {
-        throw runtime_error("The --out.num-nodes option value must be "
-                            "between 1 and 99999.");
+        throw std::runtime_error("The --out.num-nodes option value must be "
+                                 "between 1 and 99999.");
     }
 }
 
@@ -100,16 +95,16 @@ void ChunkReducer::_makeFilePaths(int32_t chunkId) {
         // Files go into a node-specific sub-directory.
         char subdir[32];
         uint32_t node = hash(static_cast<uint32_t>(chunkId)) % _numNodes;
-        snprintf(subdir, sizeof(subdir), "node_%05lu",
-                 static_cast<unsigned long>(node));
+        std::snprintf(subdir, sizeof(subdir), "node_%05lu",
+                      static_cast<unsigned long>(node));
         p = p / subdir;
         fs::create_directory(p);
     }
     char suffix[32];
-    snprintf(suffix, sizeof(suffix), "_%ld.txt",
+    std::snprintf(suffix, sizeof(suffix), "_%ld.txt",
              static_cast<long>(chunkId));
     _chunkPath = p / (_prefix + suffix);
-    snprintf(suffix, sizeof(suffix), "_%ld_overlap.txt",
+    std::snprintf(suffix, sizeof(suffix), "_%ld_overlap.txt",
              static_cast<long>(chunkId));
     _overlapChunkPath = p / (_prefix + suffix);
 }

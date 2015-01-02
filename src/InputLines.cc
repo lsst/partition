@@ -32,24 +32,6 @@
 #include "Constants.h"
 #include "FileUtils.h"
 
-
-using std::free;
-using std::max;
-using std::min;
-using std::malloc;
-using std::memcpy;
-using std::pair;
-using std::runtime_error;
-using std::swap;
-using std::vector;
-
-// C++11 allows switching all of these to namespace std.
-using boost::lock_guard;
-using boost::make_shared;
-using boost::mutex;
-using boost::shared_ptr;
-using boost::unique_lock;
-
 namespace fs = boost::filesystem;
 namespace this_thread = boost::this_thread;
 
@@ -59,14 +41,14 @@ namespace partition {
 
 namespace {
 
-    typedef pair<char *, char *> CharPtrPair;
+    typedef std::pair<char *, char *> CharPtrPair;
 
     struct LineFragmentStorage {
         size_t size;
         char buf[MAX_LINE_SIZE];
 
         LineFragmentStorage(size_t sz, char * b) : size(sz) {
-            memcpy(buf, b, sz);
+            std::memcpy(buf, b, sz);
         }
     };
 
@@ -91,8 +73,8 @@ namespace {
             return __sync_val_compare_and_swap(&data, oldval, newval);
 #else
 #   warning CAS not supported on this platform - falling back to locking.
-            static mutex m;
-            lock_guard<mutex> lock(m);
+            static boost::mutex m;
+            boost::lock_guard<boost::mutex> lock(m);
             LineFragmentStorage * oldval = data;
             if (oldval == 0) {
                 data = newval;
@@ -104,11 +86,11 @@ namespace {
 
     // An input file block.
     struct Block {
-        shared_ptr<InputFile> file;
+        boost::shared_ptr<InputFile> file;
         off_t offset;
         size_t size;
-        shared_ptr<LineFragment> head;
-        shared_ptr<LineFragment> tail;
+        boost::shared_ptr<LineFragment> head;
+        boost::shared_ptr<LineFragment> tail;
 
         Block() : file(), offset(0), size(0), head(), tail() { }
 
@@ -132,7 +114,7 @@ namespace {
                 // The first line spans the entire block. This can only happen
                 // if the line is too long or for the last block in a file.
                 if (tail) {
-                    throw runtime_error("Line too long.");
+                    throw std::runtime_error("Line too long.");
                 }
             } else {
                 ++beg;
@@ -140,7 +122,7 @@ namespace {
             // Skip LF in CRLF sequence and verify line length.
             if (beg < readEnd && beg[-1] == '\r' && beg[0] == '\n') { ++beg; }
             if (beg - readBeg > MAX_LINE_SIZE) {
-                throw runtime_error("Line too long.");
+                throw std::runtime_error("Line too long.");
             }
             if (head) {
                 // This is not the first block in the enclosing file. If the
@@ -151,7 +133,7 @@ namespace {
                 LineFragmentStorage * left = head->tryStore(right);
                 if (left != 0) {
                     beg = readBeg - left->size;
-                    memcpy(beg, left->buf, left->size);
+                    std::memcpy(beg, left->buf, left->size);
                     delete right;
                 }
             }
@@ -162,7 +144,7 @@ namespace {
            // scan to the beginning of the last line.
            for (; end > beg && end[-1] != '\n' && end[-1] != '\r'; --end) { }
            if (end == beg || readEnd - end > MAX_LINE_SIZE) {
-               throw runtime_error("Line too long.");
+               throw std::runtime_error("Line too long.");
            }
            // If the trailing part of the last line has already been read by
            // the reader of the following block, return the entire line in buf.
@@ -170,7 +152,7 @@ namespace {
                static_cast<size_t>(readEnd - end), end);
            LineFragmentStorage * right = tail->tryStore(left);
            if (right != 0) {
-               memcpy(readEnd, right->buf, right->size);
+               std::memcpy(readEnd, right->buf, right->size);
                end = readEnd + right->size;
                delete left;
            }
@@ -179,10 +161,10 @@ namespace {
     }
 
     // Split a file into a series of blocks.
-    vector<Block> const split(fs::path const & path, off_t blockSize) {
-        vector<Block> blocks;
+    std::vector<Block> const split(fs::path const & path, off_t blockSize) {
+        std::vector<Block> blocks;
         Block b;
-        b.file = make_shared<InputFile>(path);
+        b.file = boost::make_shared<InputFile>(path);
         b.offset = 0;
         b.size = blockSize;
         off_t const fileSize = b.file->size();
@@ -192,10 +174,10 @@ namespace {
         }
         blocks.reserve(numBlocks);
         for (off_t i = 0; i < numBlocks; ++i, b.offset += blockSize) {
-            b.size = static_cast<size_t>(min(fileSize - b.offset, blockSize));
+            b.size = static_cast<size_t>(std::min(fileSize - b.offset, blockSize));
             b.head = b.tail;
             if (i < numBlocks - 1) {
-                b.tail = make_shared<LineFragment>();
+                b.tail = boost::make_shared<LineFragment>();
             } else {
                 b.tail.reset();
             }
@@ -209,7 +191,7 @@ namespace {
 
 class InputLines::Impl {
 public:
-    Impl(vector<fs::path> const & paths, size_t blockSize, bool skipFirstLine);
+    Impl(std::vector<fs::path> const & paths, size_t blockSize, bool skipFirstLine);
     ~Impl() { }
 
     size_t getBlockSize() const {
@@ -219,7 +201,7 @@ public:
         return _blockSize + 2*MAX_LINE_SIZE;
     }
     bool empty() const {
-        lock_guard<mutex> lock(_mutex);
+        boost::lock_guard<boost::mutex> lock(_mutex);
         return _blockCount == 0;
     }
 
@@ -236,18 +218,18 @@ private:
 
     char _pad0[CACHE_LINE_SIZE];
 
-    mutex mutable _mutex;
+    boost::mutex mutable _mutex;
     size_t _blockCount;
-    vector<Block> _queue;
-    vector<fs::path> _paths;
+    std::vector<Block> _queue;
+    std::vector<fs::path> _paths;
 
     char _pad1[CACHE_LINE_SIZE];
 };
 
-InputLines::Impl::Impl(vector<fs::path> const & paths,
+InputLines::Impl::Impl(std::vector<fs::path> const & paths,
                        size_t blockSize,
                        bool skipFirstLine) :
-    _blockSize(min(max(blockSize, 1*MiB), 1*GiB)),
+    _blockSize(std::min(std::max(blockSize, 1*MiB), 1*GiB)),
     _skipFirstLine(skipFirstLine),
     _mutex(),
     _blockCount(paths.size()),
@@ -256,7 +238,7 @@ InputLines::Impl::Impl(vector<fs::path> const & paths,
 { }
 
 CharPtrPair const InputLines::Impl::read(char * buf) {
-    unique_lock<mutex> lock(_mutex);
+    boost::unique_lock<boost::mutex> lock(_mutex);
     while (_blockCount > 0) {
         if (!_queue.empty()) {
             // Pop the next block off the queue and read it.
@@ -270,7 +252,7 @@ CharPtrPair const InputLines::Impl::read(char * buf) {
             fs::path path = _paths.back();
             _paths.pop_back();
             lock.unlock(); // allow parallel file opens and splits
-            vector<Block> v = split(path, static_cast<off_t>(_blockSize));
+            std::vector<Block> v = split(path, static_cast<off_t>(_blockSize));
             // The Impl constructor initially treats files as having a
             // single block. Consume one block, and account for any
             // additional blocks generated by the split operation.
@@ -306,10 +288,10 @@ CharPtrPair const InputLines::Impl::read(char * buf) {
 
 // Method delegation.
 
-InputLines::InputLines(vector<fs::path> const & paths,
+InputLines::InputLines(std::vector<fs::path> const & paths,
                        size_t blockSize,
                        bool skipFirstLine) :
-    _impl(make_shared<Impl>(paths, blockSize, skipFirstLine))
+    _impl(boost::make_shared<Impl>(paths, blockSize, skipFirstLine))
 { }
 
 size_t InputLines::getBlockSize() const {

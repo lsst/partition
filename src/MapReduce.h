@@ -703,7 +703,7 @@ namespace detail {
     class JobImpl<WorkerT, void> : private JobBase<JobImpl<WorkerT, void>, WorkerT> {
         typedef JobBase<JobImpl<WorkerT, void>, WorkerT> Base;
 
-        void _storeResult(WorkerT & w) { }
+        void _storeResult(WorkerT &) { }
 
         // Allow JobBase to call _storeResult.
         friend class JobBase<JobImpl<WorkerT, void>, WorkerT>;

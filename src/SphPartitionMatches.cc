@@ -65,20 +65,6 @@
 #include "FileUtils.h"
 #include "MapReduce.h"
 
-using std::cerr;
-using std::cout;
-using std::endl;
-using std::exception;
-using std::find;
-using std::pair;
-using std::runtime_error;
-using std::snprintf;
-using std::string;
-using std::vector;
-
-using boost::make_shared;
-using boost::shared_ptr;
-
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
 
@@ -107,7 +93,7 @@ public:
     void reduce(RecordIter const begin, RecordIter const end);
     void finish();
 
-    shared_ptr<ChunkIndex> const result() { return _index; }
+    boost::shared_ptr<ChunkIndex> const result() { return _index; }
 
     static void defineOptions(po::options_description & opts);
 
@@ -115,17 +101,17 @@ private:
     void _openFile(int32_t chunkId);
 
     csv::Editor _editor;
-    pair<int,int> _pos1;
-    pair<int,int> _pos2;
+    std::pair<int,int> _pos1;
+    std::pair<int,int> _pos2;
     int _chunkIdField;
     int _subChunkIdField;
     int _flagsField;
     Chunker _chunker;
-    shared_ptr<ChunkIndex> _index;
+    boost::shared_ptr<ChunkIndex> _index;
     int32_t _chunkId;
     uint32_t _numNodes;
     fs::path _outputDir;
-    string _prefix;
+    std::string _prefix;
     BufferedAppender _chunk;
 };
 
@@ -137,38 +123,38 @@ Worker::Worker(po::variables_map const & vm) :
     _subChunkIdField(-1),
     _flagsField(-1),
     _chunker(vm),
-    _index(make_shared<ChunkIndex>()),
+    _index(boost::make_shared<ChunkIndex>()),
     _chunkId(-1),
     _numNodes(vm["out.num-nodes"].as<uint32_t>()),
-    _outputDir(vm["out.dir"].as<string>().c_str()),  // defend against GCC PR21334
-    _prefix(vm["part.prefix"].as<string>().c_str()), // defend against GCC PR21334
+    _outputDir(vm["out.dir"].as<std::string>().c_str()),  // defend against GCC PR21334
+    _prefix(vm["part.prefix"].as<std::string>().c_str()), // defend against GCC PR21334
     _chunk(vm["mr.block-size"].as<size_t>()*MiB)
 {
     if (_numNodes == 0 || _numNodes > 99999u) {
-        throw runtime_error("The --out.num-nodes option value must be "
-                            "between 1 and 99999.");
+        throw std::runtime_error("The --out.num-nodes option value must be "
+                                 "between 1 and 99999.");
     }
     // Map field names of interest to field indexes.
     if (vm.count("part.pos1") == 0 || vm.count("part.pos2") == 0) {
-        throw runtime_error("The --part.pos1 and/or --part.pos2 "
-                            "option was not specified.");
+        throw std::runtime_error("The --part.pos1 and/or --part.pos2 "
+                                 "option was not specified.");
     }
     FieldNameResolver fields(_editor);
-    string s = vm["part.pos1"].as<string>();
-    pair<string,string> p = parseFieldNamePair("part.pos1", s);
+    std::string s = vm["part.pos1"].as<std::string>();
+    std::pair<std::string, std::string> p = parseFieldNamePair("part.pos1", s);
     _pos1.first = fields.resolve("part.pos1", s, p.first);
     _pos1.second = fields.resolve("part.pos1", s, p.second);
-    s = vm["part.pos2"].as<string>();
+    s = vm["part.pos2"].as<std::string>();
     p = parseFieldNamePair("part.pos2", s);
     _pos2.first = fields.resolve("part.pos2", s, p.first);
     _pos2.second = fields.resolve("part.pos2", s, p.second);
     if (vm.count("part.chunk") != 0) {
-        s = vm["part.chunk"].as<string>();
+        s = vm["part.chunk"].as<std::string>();
         _chunkIdField = fields.resolve("part.chunk", s);
     }
-    s = vm["part.sub-chunk"].as<string>();
+    s = vm["part.sub-chunk"].as<std::string>();
     _subChunkIdField = fields.resolve("part.sub-chunk", s);
-    s = vm["part.flags"].as<string>();
+    s = vm["part.flags"].as<std::string>();
     _flagsField = fields.resolve("part.flags", s);
 }
 
@@ -176,7 +162,7 @@ void Worker::map(char const * const begin,
                  char const * const end,
                  Worker::Silo & silo)
 {
-    pair<double, double> sc1, sc2;
+    std::pair<double, double> sc1, sc2;
     ChunkLocation loc1, loc2;
     char const * cur = begin;
     while (cur < end) {
@@ -184,8 +170,8 @@ void Worker::map(char const * const begin,
         bool null1 = _editor.isNull(_pos1.first) || _editor.isNull(_pos1.second);
         bool null2 = _editor.isNull(_pos2.first) || _editor.isNull(_pos2.second);
         if (null1 && null2) {
-            throw runtime_error("Both partitioning positions in a match "
-                                "record contain NULLs.");
+            throw std::runtime_error("Both partitioning positions in a match "
+                                     "record contain NULLs.");
         }
         if (!null1) {
             sc1.first = _editor.get<double>(_pos1.first);
@@ -204,9 +190,9 @@ void Worker::map(char const * const begin,
                 // Both positions are valid.
                 if (angSep(cartesian(sc1), cartesian(sc2)) * DEG_PER_RAD >
                     _chunker.getOverlap() - EPSILON_DEG) {
-                    throw runtime_error("Partitioning positions in match record "
-                                        "are separated by more than the overlap "
-                                        "radius.");
+                    throw std::runtime_error("Partitioning positions in match "
+                                             "record are separated by more "
+                                             "than the overlap radius.");
                 }
                 if (loc1.chunkId == loc2.chunkId) {
                     // Both positions are in the same chunk.
@@ -251,21 +237,27 @@ void Worker::finish() {
 void Worker::defineOptions(po::options_description & opts) {
     po::options_description part("\\_______________ Partitioning", 80);
     part.add_options()
-        ("part.prefix", po::value<string>()->default_value("chunk"),
+        ("part.prefix",
+         po::value<std::string>()->default_value("chunk"),
          "Chunk file name prefix.")
-        ("part.chunk", po::value<string>(),
+        ("part.chunk",
+         po::value<std::string>(),
          "Optional chunk ID output field name. This field name is appended "
          "to the output field name list if it isn't already included.")
-        ("part.sub-chunk", po::value<string>()->default_value("subChunkId"),
+        ("part.sub-chunk",
+         po::value<std::string>()->default_value("subChunkId"),
          "Sub-chunk ID output field name. This field field name is appended "
          "to the output field name list if it isn't already included.")
-        ("part.pos1", po::value<string>(),
+        ("part.pos1",
+         po::value<std::string>(),
          "The partitioning longitude and latitude angle field names of the "
          "first matched entity, separated by a comma.")
-        ("part.pos2", po::value<string>(),
+        ("part.pos2",
+         po::value<std::string>(),
          "The partitioning longitude and latitude angle field names of the "
          "second matched entity, separated by a comma.")
-        ("part.flags", po::value<string>()->default_value("partitioningFlags"),
+        ("part.flags",
+         po::value<std::string>()->default_value("partitioningFlags"),
          "The partitioning flags output field name. Bit 0, the LSB of the "
          "field value, is set if the partition of the first entity in the "
          "match is equal to the partition of the match pair. Likewise, bit "
@@ -285,13 +277,14 @@ void Worker::_openFile(int32_t chunkId) {
         // Files go into a node-specific sub-directory.
         char subdir[32];
         uint32_t node = hash(static_cast<uint32_t>(chunkId)) % _numNodes;
-        snprintf(subdir, sizeof(subdir), "node_%05lu",
-                 static_cast<unsigned long>(node));
+        std::snprintf(subdir, sizeof(subdir), "node_%05lu",
+                      static_cast<unsigned long>(node));
         p = p / subdir;
         fs::create_directory(p);
     }
     char suffix[32];
-    snprintf(suffix, sizeof(suffix), "_%ld.txt", static_cast<long>(chunkId));
+    std::snprintf(suffix, sizeof(suffix), "_%ld.txt",
+                  static_cast<long>(chunkId));
     _chunk.open(p / (_prefix + suffix), false);
 }
 
@@ -330,20 +323,21 @@ int main(int argc, char const * const * argv) {
         part::ensureOutputFieldExists(vm, "part.flags");
         part::makeOutputDirectory(vm, true);
         part::PartitionMatchesJob job(vm);
-        shared_ptr<part::ChunkIndex> index = job.run(part::makeInputLines(vm));
+        boost::shared_ptr<part::ChunkIndex> index =
+            job.run(part::makeInputLines(vm));
         if (!index->empty()) {
-            fs::path d(vm["out.dir"].as<string>());
-            fs::path f = vm["part.prefix"].as<string>() + "_index.bin";
+            fs::path d(vm["out.dir"].as<std::string>());
+            fs::path f = vm["part.prefix"].as<std::string>() + "_index.bin";
             index->write(d / f, false);
         }
         if (vm.count("verbose") != 0) {
-            index->write(cout, 0);
-            cout << endl;
+            index->write(std::cout, 0);
+            std::cout << std::endl;
         } else {
-            cout << *index << endl;
+            std::cout << *index << std::endl;
         }
-    } catch (exception const & ex) {
-        cerr << ex.what() << endl;
+    } catch (std::exception const & ex) {
+        std::cerr << ex.what() << std::endl;
         return EXIT_FAILURE;
     }
     return EXIT_SUCCESS;

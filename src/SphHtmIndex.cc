@@ -43,19 +43,6 @@
 #include "HtmIndex.h"
 #include "MapReduce.h"
 
-using std::cerr;
-using std::cout;
-using std::endl;
-using std::exception;
-using std::pair;
-using std::runtime_error;
-using std::snprintf;
-using std::string;
-using std::vector;
-
-using boost::make_shared;
-using boost::shared_ptr;
-
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
 
@@ -112,7 +99,7 @@ public:
     void reduce(RecordIter const begin, RecordIter const end);
     void finish();
 
-    shared_ptr<HtmIndex> const result() { return _index; }
+    boost::shared_ptr<HtmIndex> const result() { return _index; }
 
     static void defineOptions(po::options_description & opts);
 
@@ -121,9 +108,9 @@ private:
 
     csv::Editor _editor;
     int _idField;
-    pair<int,int> _pos;
+    std::pair<int,int> _pos;
     int _level;
-    shared_ptr<HtmIndex> _index;
+    boost::shared_ptr<HtmIndex> _index;
     uint32_t _htmId;
     uint64_t _numRecords;
     uint32_t _numNodes;
@@ -137,28 +124,28 @@ Worker::Worker(po::variables_map const & vm) :
     _idField(-1),
     _pos(-1, -1),
     _level(vm["htm.level"].as<int>()),
-    _index(make_shared<HtmIndex>(_level)),
+    _index(boost::make_shared<HtmIndex>(_level)),
     _htmId(0),
     _numRecords(0),
     _numNodes(vm["out.num-nodes"].as<uint32_t>()),
-    _outputDir(vm["out.dir"].as<string>().c_str()), // defend against GCC PR21334
+    _outputDir(vm["out.dir"].as<std::string>().c_str()), // defend against GCC PR21334
     _records(vm["mr.block-size"].as<size_t>()*MiB),
     _ids(vm["mr.block-size"].as<size_t>()*MiB)
 {
     if (_numNodes == 0 || _numNodes > 99999u) {
-        throw runtime_error("The --out.num-nodes option value must be "
-                            "between 1 and 99999.");
+        throw std::runtime_error("The --out.num-nodes option value must be "
+                                 "between 1 and 99999.");
     }
     // Map field names of interest to field indexes.
     if (vm.count("id") == 0 || vm.count("part.pos") == 0) {
-        throw runtime_error("The --id and/or --part.pos "
-                            "option was not specified.");
+        throw std::runtime_error("The --id and/or --part.pos "
+                                 "option was not specified.");
     }
     FieldNameResolver fields(_editor);
-    string s = vm["id"].as<string>();
+    std::string s = vm["id"].as<std::string>();
     _idField = fields.resolve("id", s);
-    s = vm["part.pos"].as<string>();
-    pair<string,string> p = parseFieldNamePair("part.pos", s);
+    s = vm["part.pos"].as<std::string>();
+    std::pair<std::string, std::string> p = parseFieldNamePair("part.pos", s);
     _pos.first = fields.resolve("part.pos", s, p.first);
     _pos.second = fields.resolve("part.pos", s, p.second);
 }
@@ -168,7 +155,7 @@ void Worker::map(char const * const begin,
                  Worker::Silo & silo)
 {
     Key k;
-    pair<double, double> sc;
+    std::pair<double, double> sc;
     char const * cur = begin;
     while (cur < end) {
         cur = _editor.readRecord(cur, end);
@@ -221,9 +208,11 @@ void Worker::defineOptions(po::options_description & opts) {
          "HTM index subdivision level.");
     po::options_description part("\\_______________ Partitioning", 80);
     part.add_options()
-        ("id", po::value<string>(),
+        ("id",
+         po::value<std::string>(),
          "The name of the record ID input field.")
-        ("part.pos", po::value<string>(),
+        ("part.pos",
+         po::value<std::string>(),
          "The partitioning longitude and latitude angle field names, "
          "separated by a comma.");
     opts.add(indexing).add(part);
@@ -238,17 +227,17 @@ void Worker::_openFiles(uint32_t htmId) {
         // Files go into a node-specific sub-directory.
         char subdir[32];
         uint32_t node = hash(htmId) % _numNodes;
-        snprintf(subdir, sizeof(subdir), "node_%05lu",
-                 static_cast<unsigned long>(node));
+        std::snprintf(subdir, sizeof(subdir), "node_%05lu",
+                      static_cast<unsigned long>(node));
         p = p / subdir;
         fs::create_directory(p);
     }
     char file[32];
-    snprintf(file, sizeof(file), "htm_%lx.txt",
-             static_cast<unsigned long>(htmId));
+    std::snprintf(file, sizeof(file), "htm_%lx.txt",
+                  static_cast<unsigned long>(htmId));
     _records.open(p / fs::path(file), false);
-    snprintf(file, sizeof(file), "htm_%lx.ids",
-             static_cast<unsigned long>(htmId));
+    std::snprintf(file, sizeof(file), "htm_%lx.ids",
+                  static_cast<unsigned long>(htmId));
     _ids.open(p / fs::path(file), false);
 }
 
@@ -279,16 +268,17 @@ int main(int argc, char const * const * argv) {
         part::parseCommandLine(vm, options, argc, argv, help);
         part::makeOutputDirectory(vm, true);
         part::HtmIndexJob job(vm);
-        shared_ptr<part::HtmIndex> index = job.run(part::makeInputLines(vm));
+        boost::shared_ptr<part::HtmIndex> index =
+            job.run(part::makeInputLines(vm));
         if (!index->empty()) {
-            fs::path d(vm["out.dir"].as<string>());
+            fs::path d(vm["out.dir"].as<std::string>());
             index->write(d / "htm_index.bin", false);
         }
         if (vm.count("verbose") != 0) {
-            cout << *index << endl;
+            std::cout << *index << std::endl;
         }
-    } catch (exception const & ex) {
-        cerr << ex.what() << endl;
+    } catch (std::exception const & ex) {
+        std::cerr << ex.what() << std::endl;
         return EXIT_FAILURE;
     }
     return EXIT_SUCCESS;
