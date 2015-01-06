@@ -149,7 +149,8 @@ void OutputFile::append(void const * buf, size_t sz) {
 
 
 BufferedAppender::BufferedAppender(size_t blockSize) :
-    _buf(0), _end(_buf + blockSize), _cur(0), _file(0) { }
+    _buf(0), _end(_buf + blockSize), _cur(0), _file(0)
+{ }
 
 BufferedAppender::~BufferedAppender() {
     close();

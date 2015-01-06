@@ -48,25 +48,26 @@ namespace partition {
 /// than one of them doesn't make sense.
 class FieldNameResolver {
 public:
-     FieldNameResolver(csv::Editor const & editor) : _editor(&editor) { }
-     ~FieldNameResolver();
-     /// Retrieve index of `fieldName`, where `fieldName` has been extracted
-     /// from the value of the given option.
-     int resolve(std::string const & option,
-                 std::string const & value,
-                 std::string const & fieldName,
-                 bool unique=true);
-     /// Retrieve index of `fieldName`, where `fieldName` is the value of the
-     /// given option.
-     int resolve(std::string const & option,
-                 std::string const & fieldName,
-                 bool unique=true) {
-         return resolve(option, fieldName, fieldName, unique);
-     }
+    FieldNameResolver(csv::Editor const & editor) : _editor(&editor) { }
+    ~FieldNameResolver();
+    /// Retrieve index of `fieldName`, where `fieldName` has been extracted
+    /// from the value of the given option.
+    int resolve(std::string const & option,
+                std::string const & value,
+                std::string const & fieldName,
+                bool unique=true);
+    /// Retrieve index of `fieldName`, where `fieldName` is the value of the
+    /// given option.
+    int resolve(std::string const & option,
+                std::string const & fieldName,
+                bool unique=true)
+    {
+        return resolve(option, fieldName, fieldName, unique);
+    }
 
 private:
-     csv::Editor const * _editor;
-     std::set<int> _fields;
+    csv::Editor const * _editor;
+    std::set<int> _fields;
 };
 
 /// Parse the given command line according to the options given and store

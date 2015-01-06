@@ -214,7 +214,8 @@ void Worker::map(char const * const begin,
 }
 
 void Worker::reduce(Worker::RecordIter const begin,
-                    Worker::RecordIter const end) {
+                    Worker::RecordIter const end)
+{
     if (begin == end) {
         return;
     }

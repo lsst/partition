@@ -234,7 +234,7 @@ std::vector<int32_t> const Chunker::getChunksIn(SphericalBox const & region,
 {
     if (numNodes == 0) {
         throw std::runtime_error("There must be at least one node "
-                                  "to assign chunks to");
+                                 "to assign chunks to");
     }
     if (node >= numNodes) {
         throw std::runtime_error("Node number must be in range [0, numNodes)");

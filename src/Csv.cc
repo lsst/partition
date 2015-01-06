@@ -146,7 +146,7 @@ Dialect & Dialect::operator=(Dialect const & dialect) {
         _escape = dialect._escape;
         _quote = dialect._quote;
         std::memcpy(_scanLut.get(), dialect._scanLut.get(),
-               NUM_CHARS * sizeof(uint8_t));
+                    NUM_CHARS * sizeof(uint8_t));
     }
     return *this;
 }

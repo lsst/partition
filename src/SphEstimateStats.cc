@@ -145,8 +145,7 @@ boost::shared_ptr<ChunkIndex> const estimateStats(
 }
 
 
-boost::shared_ptr<ChunkIndex> const estimateStats(po::variables_map const & vm)
-{
+boost::shared_ptr<ChunkIndex> const estimateStats(po::variables_map const & vm) {
     Chunker chunker(vm);
     if (vm.count("index") == 0 && vm.count("part.index") == 0) {
         throw std::runtime_error("One or both of the --index and --part.index "

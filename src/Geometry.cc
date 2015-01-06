@@ -115,8 +115,7 @@ Vector3d const * const htmRootVert[24] = {
 };
 
 // Return the number of the HTM root triangle containing v.
-inline uint32_t rootNumFor(Vector3d const &v)
-{
+inline uint32_t rootNumFor(Vector3d const &v) {
     if (v(2) < 0.0) {
         // S0, S1, S2, S3
         if (v(1) > 0.0) {
@@ -885,8 +884,8 @@ void SphericalBox::_findIds(
     std::vector<uint32_t> & ids, // Storage for overlapping triangle IDs.
     uint32_t id,                 // HTM ID of triangle `m`.
     int level,                   // Number of recursions remaining.
-    Matrix3d const & m           // Triangle vertices.
-) const {
+    Matrix3d const & m) const    // Triangle vertices.
+{
     if (!intersects(SphericalBox(m.col(0), m.col(1), m.col(2)))) {
         return;
     } else if (level == 0) {

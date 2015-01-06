@@ -177,7 +177,8 @@ void ChunkIndex::write(fs::path const & path, bool truncate) const {
 namespace {
     template <typename K> struct EntryPairCmp {
         bool operator()(std::pair<K, ChunkIndex::Entry> const & p1,
-                        std::pair<K, ChunkIndex::Entry> const & p2) const {
+                        std::pair<K, ChunkIndex::Entry> const & p2) const
+        {
             return p1.first < p2.first;
         }
     };
