@@ -39,18 +39,6 @@
 #include "Geometry.h"
 #include "HtmIndex.h"
 
-using std::cerr;
-using std::cout;
-using std::endl;
-using std::exception;
-using std::max;
-using std::min;
-using std::runtime_error;
-using std::string;
-using std::vector;
-
-using boost::shared_ptr;
-
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
 
@@ -61,25 +49,33 @@ namespace partition {
 void defineOptions(po::options_description & opts) {
     po::options_description dup("\\________________ Duplication", 80);
     dup.add_options()
-        ("sample.fraction", po::value<double>()->default_value(1.0),
+        ("sample.fraction",
+         po::value<double>()->default_value(1.0),
          "The fraction of input positions to include in the output.")
-        ("index", po::value<string>(),
+        ("index",
+         po::value<std::string>(),
          "HTM index file name for the data set to duplicate. May be "
          "omitted, in which case --part.index is used as the HTM index "
          "for both the input data set and for partitioning positions.")
-        ("lon-min", po::value<double>()->default_value(0.0),
+        ("lon-min",
+         po::value<double>()->default_value(0.0),
          "Minimum longitude angle bound (deg) for the duplication region.")
-        ("lon-max", po::value<double>()->default_value(360.0),
+        ("lon-max",
+         po::value<double>()->default_value(360.0),
          "Maximum longitude angle bound (deg) for the duplication region.")
-        ("lat-min", po::value<double>()->default_value(-90.0),
+        ("lat-min",
+         po::value<double>()->default_value(-90.0),
          "Minimum latitude angle bound (deg) for the duplication region.")
-        ("lat-max", po::value<double>()->default_value(90.0),
+        ("lat-max",
+         po::value<double>()->default_value(90.0),
          "Maximum latitude angle bound (deg) for the duplication region.")
-        ("chunk-id", po::value<vector<int32_t> >(),
+        ("chunk-id",
+         po::value<std::vector<int32_t> >(),
          "Optionally limit duplication to one or more chunks. If specified, "
          "data will be duplicated for the given chunk(s) regardless of the "
          "the duplication region and node.")
-        ("out.node", po::value<uint32_t>(),
+        ("out.node",
+         po::value<uint32_t>(),
          "Optionally limit duplication to chunks for the given output node. "
          "A chunk is assigned to a node when the hash of the chunk ID modulo "
          "the number of nodes is equal to the node number. If this option is "
@@ -87,13 +83,15 @@ void defineOptions(po::options_description & opts) {
          "ignored if --chunk-id is specified.");
     po::options_description part("\\_______________ Partitioning", 80);
     part.add_options()
-        ("part.index", po::value<string>(),
+        ("part.index",
+         po::value<std::string>(),
          "HTM index of partitioning positions. For example, if duplicating "
          "a source table partitioned on associated object RA and Dec, this "
          "would be the name of the HTM index file for the object table. If "
          "this option is omitted, then --index is used as the HTM index for "
          "both the input and partitioning position data sets.")
-        ("part.prefix", po::value<string>()->default_value("chunk"),
+        ("part.prefix",
+         po::value<std::string>()->default_value("chunk"),
          "Chunk file name prefix.");
     Chunker::defineOptions(part);
     opts.add(dup).add(part);
@@ -101,21 +99,22 @@ void defineOptions(po::options_description & opts) {
 }
 
 
-shared_ptr<ChunkIndex> const estimateStats(vector<int32_t> const & chunks,
-                                           Chunker const & chunker,
-                                           HtmIndex const & index,
-                                           HtmIndex const & partIndex)
+boost::shared_ptr<ChunkIndex> const estimateStats(
+    std::vector<int32_t> const & chunks,
+    Chunker const & chunker,
+    HtmIndex const & index,
+    HtmIndex const & partIndex)
 {
-    vector<int32_t> subChunks;
-    vector<uint32_t> htmIds;
-    shared_ptr<ChunkIndex> chunkIndex(new ChunkIndex());
+    std::vector<int32_t> subChunks;
+    std::vector<uint32_t> htmIds;
+    boost::shared_ptr<ChunkIndex> chunkIndex(new ChunkIndex());
     // loop over chunks
-    for (vector<int32_t>::size_type i = 0; i < chunks.size(); ++i) {
+    for (std::vector<int32_t>::size_type i = 0; i < chunks.size(); ++i) {
         int32_t chunkId = chunks[i];
         subChunks.clear();
         chunker.getSubChunks(subChunks, chunkId);
         // loop over sub-chunks
-        for (vector<int32_t>::size_type j = 0; j < subChunks.size(); ++j) {
+        for (std::vector<int32_t>::size_type j = 0; j < subChunks.size(); ++j) {
             int32_t subChunkId = subChunks[j];
             SphericalBox box = chunker.getSubChunkBounds(chunkId, subChunkId);
             SphericalBox overlapBox = box;
@@ -123,19 +122,19 @@ shared_ptr<ChunkIndex> const estimateStats(vector<int32_t> const & chunks,
             htmIds.clear();
             box.htmIds(htmIds, index.getLevel());
             // loop over overlapping triangles
-            for (vector<uint32_t>::size_type k = 0; k < htmIds.size(); ++k) {
+            for (std::vector<uint32_t>::size_type k = 0; k < htmIds.size(); ++k) {
                 uint32_t targetHtmId = htmIds[k];
                 uint32_t sourceHtmId = partIndex.mapToNonEmpty(targetHtmId);
                 SphericalTriangle tri(targetHtmId);
                 double a = tri.area();
-                double x = min(tri.intersectionArea(box), a);
+                double x = std::min(tri.intersectionArea(box), a);
                 ChunkLocation loc;
                 loc.chunkId = chunkId;
                 loc.subChunkId = subChunkId;
                 uint64_t inTri = index(sourceHtmId);
                 size_t inBox = static_cast<size_t>((x/a)*inTri);
                 chunkIndex->add(loc, inBox);
-                double ox = max(min(tri.intersectionArea(overlapBox), a), x);
+                double ox = std::max(std::min(tri.intersectionArea(overlapBox), a), x);
                 size_t inOverlap = static_cast<size_t>((ox/a)*inTri) - inBox;
                 loc.overlap = true;
                 chunkIndex->add(loc, inOverlap);
@@ -146,31 +145,32 @@ shared_ptr<ChunkIndex> const estimateStats(vector<int32_t> const & chunks,
 }
 
 
-shared_ptr<ChunkIndex> const estimateStats(po::variables_map const & vm) {
+boost::shared_ptr<ChunkIndex> const estimateStats(po::variables_map const & vm) {
     Chunker chunker(vm);
     if (vm.count("index") == 0 && vm.count("part.index") == 0) {
-        throw runtime_error("One or both of the --index and --part.index "
-                            "options must be specified.");
+        throw std::runtime_error("One or both of the --index and --part.index "
+                                 "options must be specified.");
     }
     // Load HTM indexes
     char const * opt = (vm.count("index") != 0 ? "index" : "part.index");
-    fs::path indexPath(vm[opt].as<string>());
+    fs::path indexPath(vm[opt].as<std::string>());
     opt = (vm.count("part.index") != 0 ? "part.index" : "index");
-    fs::path partIndexPath(vm[opt].as<string>());
-    shared_ptr<HtmIndex> index(new HtmIndex(indexPath));
-    shared_ptr<HtmIndex> partIndex;
+    fs::path partIndexPath(vm[opt].as<std::string>());
+    boost::shared_ptr<HtmIndex> index(new HtmIndex(indexPath));
+    boost::shared_ptr<HtmIndex> partIndex;
     if (partIndexPath != indexPath) {
         partIndex.reset(new HtmIndex(partIndexPath));
     } else {
         partIndex = index;
     }
     if (index->getLevel() != partIndex->getLevel()) {
-        throw runtime_error("Subdivision levels of input index (--index) and "
-                            "partitioning index (--part.index) do not match.");
+        throw std::runtime_error("Subdivision levels of input index (--index) "
+                                 "and partitioning index (--part.index) do not "
+                                 "match.");
     }
-    vector<int32_t> chunks = chunksToDuplicate(chunker, vm);
+    std::vector<int32_t> chunks = chunksToDuplicate(chunker, vm);
     if (vm.count("verbose") != 0) {
-        cerr << "Processing " << chunks.size() <<" chunks" << endl;
+        std::cerr << "Processing " << chunks.size() <<" chunks" << std::endl;
     }
     return estimateStats(chunks, chunker, *index, *partIndex);
 }
@@ -192,20 +192,20 @@ int main(int argc, char const * const * argv) {
         po::variables_map vm;
         part::parseCommandLine(vm, options, argc, argv, help);
         part::makeOutputDirectory(vm, true);
-        shared_ptr<part::ChunkIndex> index = part::estimateStats(vm);
+        boost::shared_ptr<part::ChunkIndex> index = part::estimateStats(vm);
         if (!index->empty()) {
-            fs::path d(vm["out.dir"].as<string>());
-            fs::path f = vm["part.prefix"].as<string>() + "_index.bin";
+            fs::path d(vm["out.dir"].as<std::string>());
+            fs::path f = vm["part.prefix"].as<std::string>() + "_index.bin";
             index->write(d / f, true);
         }
         if (vm.count("verbose") != 0) {
-            index->write(cout, 0);
-            cout << endl;
+            index->write(std::cout, 0);
+            std::cout << std::endl;
         } else {
-            cout << *index << endl;
+            std::cout << *index << std::endl;
         }
-    } catch (exception const & ex) {
-        cerr << ex.what() << endl;
+    } catch (std::exception const & ex) {
+        std::cerr << ex.what() << std::endl;
         return EXIT_FAILURE;
     }
     return EXIT_SUCCESS;

@@ -31,18 +31,6 @@
 #include <stdexcept>
 #include <utility>
 
-using std::bad_alloc;
-using std::free;
-using std::malloc;
-using std::memcpy;
-using std::memset;
-using std::numeric_limits;
-using std::pair;
-using std::runtime_error;
-using std::snprintf;
-using std::string;
-using std::vector;
-
 namespace po = boost::program_options;
 
 
@@ -55,7 +43,7 @@ namespace csv {
 
 // When escaping is turned on, the escape, quote, and delimiter characters
 // must not be set to any of these characters.
-string const Dialect::_prohibited = "0bfnrtvNZ";
+std::string const Dialect::_prohibited = "0bfnrtvNZ";
 
 // Character unescape lookup table. For example, this maps the 'n' in the
 // "\n" sequence to the LF character. There is one entry for every possible
@@ -97,7 +85,7 @@ Dialect::Dialect(char delimiter,
     _validate();
 }
 
-Dialect::Dialect(string const & null,
+Dialect::Dialect(std::string const & null,
                  char delimiter,
                  char escape,
                  char quote) :
@@ -110,7 +98,7 @@ Dialect::Dialect(string const & null,
     _validate();
 }
 
-Dialect::Dialect(po::variables_map const & vm, string const & prefix) :
+Dialect::Dialect(po::variables_map const & vm, std::string const & prefix) :
     _null(),
     _scanLut(new uint8_t[NUM_CHARS])
 {
@@ -126,7 +114,7 @@ Dialect::Dialect(po::variables_map const & vm, string const & prefix) :
         _escape = vm[prefix + "escape"].as<char>();
     }
     if (vm.count(prefix + "null") != 0) {
-        _null = vm[prefix + "null"].as<string>();
+        _null = vm[prefix + "null"].as<std::string>();
     } else if (_quote != '\0') {
         _null = "NULL";
     } else if (_escape != '\0') {
@@ -144,7 +132,8 @@ Dialect::Dialect(Dialect const & dialect) :
     _escape(dialect._escape),
     _quote(dialect._quote)
 {
-    memcpy(_scanLut.get(), dialect._scanLut.get(), NUM_CHARS * sizeof(uint8_t));
+    std::memcpy(
+        _scanLut.get(), dialect._scanLut.get(), NUM_CHARS * sizeof(uint8_t));
 }
 
 Dialect::~Dialect() { }
@@ -156,8 +145,8 @@ Dialect & Dialect::operator=(Dialect const & dialect) {
         _delimiter = dialect._delimiter;
         _escape = dialect._escape;
         _quote = dialect._quote;
-        memcpy(_scanLut.get(), dialect._scanLut.get(),
-               NUM_CHARS * sizeof(uint8_t));
+        std::memcpy(_scanLut.get(), dialect._scanLut.get(),
+                    NUM_CHARS * sizeof(uint8_t));
     }
     return *this;
 }
@@ -165,12 +154,12 @@ Dialect & Dialect::operator=(Dialect const & dialect) {
 size_t Dialect::decode(char * buf, char const * value, size_t size) const {
     if (_quote == '\0' && _escape == '\0') {
         if (size > MAX_FIELD_SIZE) {
-            throw runtime_error("CSV field value is too long to decode.");
+            throw std::runtime_error("CSV field value is too long to decode.");
         }
-        memcpy(buf, value, size);
+        std::memcpy(buf, value, size);
         return size;
     } else if (_null.compare(0, _null.size(), value, size) == 0) {
-        memcpy(buf, _null.data(), _null.size());
+        std::memcpy(buf, _null.data(), _null.size());
         return _null.size();
     }
     bool const quoted = (size > 0 && _quote != '\0' && value[0] == _quote);
@@ -200,14 +189,14 @@ size_t Dialect::decode(char * buf, char const * value, size_t size) const {
         buf[j] = c;
     }
     if (i < size) {
-        throw runtime_error("CSV field value is too long to decode.");
+        throw std::runtime_error("CSV field value is too long to decode.");
     }
     return j;
 }
 
 size_t Dialect::encode(char * buf, char const * value, size_t size) const {
     if (value == 0) {
-        memcpy(buf, _null.data(), _null.size());
+        std::memcpy(buf, _null.data(), _null.size());
         return _null.size();
     }
     int const flags = _scan(value, size);
@@ -216,24 +205,24 @@ size_t Dialect::encode(char * buf, char const * value, size_t size) const {
             if (_quote != '\0') {
                 // Quote value to avoid ambiguity with the NULL string.
                 if (size > MAX_FIELD_SIZE - 2) {
-                    throw runtime_error("CSV field value is too long to "
-                                        "encode.");
+                    throw std::runtime_error("CSV field value is too long to "
+                                             "encode.");
                 }
                 buf[0] = _quote;
-                memcpy(buf + 1, value, size);
+                std::memcpy(buf + 1, value, size);
                 buf[size + 1] = _quote;
                 size += 2;
             } else {
-                throw runtime_error("Ambiguous CSV field value: the encoded "
-                                    "value matches the dialect's NULL "
-                                    "string exactly.");
+                throw std::runtime_error("Ambiguous CSV field value: the "
+                                         "encoded value matches the dialect's "
+                                         "NULL string exactly.");
             }
         } else {
             if (size > MAX_FIELD_SIZE) {
-                throw runtime_error("CSV field value is too long to "
-                                    "encode.");
+                throw std::runtime_error("CSV field value is too long to "
+                                         "encode.");
             }
-            memcpy(buf, value, size);
+            std::memcpy(buf, value, size);
         }
         return size;
     }
@@ -264,8 +253,8 @@ size_t Dialect::encode(char * buf, char const * value, size_t size) const {
         }
     } else if (_quote != '\0') {
         if ((flags & HAS_CRLF) != 0) {
-            throw runtime_error("Cannot encode CSV field with embedded "
-                                "CR or LF characters in this dialect.");
+            throw std::runtime_error("Cannot encode CSV field with embedded "
+                                     "CR or LF characters in this dialect.");
         }
         // value contains embedded delimiter or quote character(s)
         buf[0] = _quote;
@@ -282,34 +271,40 @@ size_t Dialect::encode(char * buf, char const * value, size_t size) const {
         }
         buf[j++] = _quote;
     } else {
-        throw runtime_error("Cannot encode CSV field with embedded CR, "
-                            "LF or delimiter characters in this dialect.");
+        throw std::runtime_error("Cannot encode CSV field with embedded CR, "
+                                 "LF or delimiter characters in this dialect.");
     }
     if (i < size) {
-        throw runtime_error("CSV field value is too long to encode.");
+        throw std::runtime_error("CSV field value is too long to encode.");
     }
     return j;
 }
 
 void Dialect::defineOptions(po::options_description & opts,
-                            string const & prefix)
+                            std::string const & prefix)
 {
     opts.add_options()
-        ((prefix + "null").c_str(), po::value<string>(),
+        ((prefix + "null").c_str(),
+         po::value<std::string>(),
          "NULL CSV field value string. Leaving this option unspecified "
          "results in a dialect specific default - if quoting is enabled, "
          "NULL is used. Otherwise, if escaping is enabled, \\N is used "
          "(assuming \\ is the escape character). If neither is enabled, "
          "an empty string is used.")
-        ((prefix + "delimiter").c_str(), po::value<char>()->default_value('\t'),
+        ((prefix + "delimiter").c_str(),
+         po::value<char>()->default_value('\t'),
          "CSV field delimiter character. Cannot be '\\n' or '\\r'.")
-        ((prefix + "quote").c_str(), po::value<char>()->default_value('"'),
+        ((prefix + "quote").c_str(),
+         po::value<char>()->default_value('"'),
          "CSV field quoting character.")
-        ((prefix + "no-quote").c_str(), po::value<string>()->default_value(""),
+        ((prefix + "no-quote").c_str(),
+         po::value<std::string>()->default_value(""),
          "Disable CSV field quoting.")
-        ((prefix + "escape").c_str(), po::value<char>()->default_value('\\'),
+        ((prefix + "escape").c_str(),
+         po::value<char>()->default_value('\\'),
          "CSV escape character.")
-        ((prefix + "no-escape").c_str(), po::value<string>()->default_value(""),
+        ((prefix + "no-escape").c_str(),
+         po::value<std::string>()->default_value(""),
          "Disable CSV character escaping.");
 }
 
@@ -328,38 +323,39 @@ int Dialect::_scan(char const * value, size_t size) const {
 void Dialect::_validate() {
     // Perform sanity checks.
     if (_null.size() > MAX_FIELD_SIZE) {
-        throw runtime_error("The CSV NULL representation is too long.");
+        throw std::runtime_error("The CSV NULL representation is too long.");
     }
     // Make sure the delimiter, quote, and escape characters are distinct
     // and legal.
     if (_delimiter == '\0' || _delimiter == '\n' || _delimiter == '\r') {
-        throw runtime_error("The CSV field delimiter may not be set to "
-                            "NUL, CR or LF.");
+        throw std::runtime_error("The CSV field delimiter may not be set to "
+                                 "NUL, CR or LF.");
     }
     if (_escape == _delimiter || _escape == '\n' || _escape == '\r') {
-        throw runtime_error("The CSV escape character may not be set to "
-                            "CR, LF or the delimiter character.");
+        throw std::runtime_error("The CSV escape character may not be set to "
+                                 "CR, LF or the delimiter character.");
     }
     if (_quote == _delimiter || _quote == '\n' || _quote == '\r') {
-        throw runtime_error("The CSV field quoting character may not be set "
-                            "to CR, LF or the delimiter character.");
+        throw std::runtime_error("The CSV field quoting character may not be "
+                                 "set to CR, LF or the delimiter character.");
     }
     if (_escape != '\0') {
         if (_escape == _quote) {
-            throw runtime_error("The CSV escape and quote characters are "
-                                "identical.");
+            throw std::runtime_error("The CSV escape and quote characters are "
+                                     "identical.");
         }
-        if (_prohibited.find(_escape) != string::npos ||
-            _prohibited.find(_quote) != string::npos ||
-            _prohibited.find(_delimiter) != string::npos) {
-            throw runtime_error("Escaping the CSV delimiter, quote, and/or "
-                                "escape characters would produce a standard "
-                                "escape sequence. Avoid characters from '" +
-                                _prohibited + "' or disable escaping.");
+        if (_prohibited.find(_escape) != std::string::npos ||
+            _prohibited.find(_quote) != std::string::npos ||
+            _prohibited.find(_delimiter) != std::string::npos) {
+            throw std::runtime_error("Escaping the CSV delimiter, quote, and/"
+                                     "or escape characters would produce a "
+                                     "standard escape sequence. Avoid "
+                                     "characters from '" + _prohibited +
+                                     "' or disable escaping.");
         }
     }
     // Everything looks good, so populate the look-up-table used by _scan().
-    memset(_scanLut.get(), 0, NUM_CHARS * sizeof(uint8_t));
+    std::memset(_scanLut.get(), 0, NUM_CHARS * sizeof(uint8_t));
     _scanLut[static_cast<int>('\r')]       = HAS_CRLF;
     _scanLut[static_cast<int>('\n')]       = HAS_CRLF;
     _scanLut[static_cast<int>(_delimiter)] = HAS_DELIM;
@@ -368,8 +364,8 @@ void Dialect::_validate() {
     // Make sure the NULL representation is semi-sane.
     int flags = _scan(_null.data(), _null.size());
     if ((flags & (HAS_CRLF | HAS_DELIM)) != 0) {
-        throw runtime_error("The CSV NULL representation must not contain "
-                            "CR, LF, or delimiter characters.");
+        throw std::runtime_error("The CSV NULL representation must not contain "
+                                 "CR, LF, or delimiter characters.");
     }
     _nullHasSpecial = (flags != 0);
 }
@@ -384,15 +380,15 @@ Editor::Field::Field() :
 Editor::Field::~Field() {
     inputValue = 0;
     if (outputValue) {
-        free(outputValue);
+        std::free(outputValue);
         outputValue = 0;
     }
 }
 
 Editor::Editor(Dialect const & inputDialect,
                Dialect const & outputDialect,
-               vector<string> const & inputFieldNames,
-               vector<string> const & outputFieldNames) :
+               std::vector<std::string> const & inputFieldNames,
+               std::vector<std::string> const & outputFieldNames) :
     _inputDialect(inputDialect),
     _outputDialect(outputDialect),
     _dialectsMatch(_inputDialect == _outputDialect),
@@ -414,15 +410,15 @@ Editor::Editor(po::variables_map const & vm) :
     _fieldMap()
 {
     if (vm.count("in.csv.field") == 0) {
-        throw runtime_error("Input CSV field names not specified.");
+        throw std::runtime_error("Input CSV field names not specified.");
     }
-    vector<string> const * inputFieldNames =
-        &vm["in.csv.field"].as<vector<string> >();
-    vector<string> const * outputFieldNames;
+    std::vector<std::string> const * inputFieldNames =
+        &vm["in.csv.field"].as<std::vector<std::string> >();
+    std::vector<std::string> const * outputFieldNames;
     if (vm.count("out.csv.field") == 0) {
         outputFieldNames = inputFieldNames;
     } else {
-        outputFieldNames = &vm["out.csv.field"].as<vector<string> >();
+        outputFieldNames = &vm["out.csv.field"].as<std::vector<std::string> >();
     }
     _numInputFields = static_cast<int>(inputFieldNames->size());
     _numOutputFields = static_cast<int>(outputFieldNames->size()),
@@ -437,10 +433,10 @@ char const * Editor::readRecord(char const * const begin,
                                 char const * const end)
 {
     if (end <= begin || begin == 0) {
-        throw runtime_error("Empty or invalid input line.");
+        throw std::runtime_error("Empty or invalid input line.");
     } else if (_numInputFields == 0) {
-        throw runtime_error("Calling readRecord() is illegal unless at "
-                            "least one CSV input field has been defined.");
+        throw std::runtime_error("Calling readRecord() is illegal unless at "
+                                 "least one CSV input field has been defined.");
     }
     bool quoted = false;
     bool escaped = false;
@@ -491,7 +487,7 @@ char const * Editor::readRecord(char const * const begin,
                 // End of current field reached.
                 ptrdiff_t sz = cur - f->inputValue;
                 if (sz > MAX_FIELD_SIZE) {
-                    throw runtime_error("CSV field value is too long.");
+                    throw std::runtime_error("CSV field value is too long.");
                 }
                 f->inputSize = static_cast<uint16_t>(sz);
                 f->outputSize = 0;
@@ -500,8 +496,8 @@ char const * Editor::readRecord(char const * const begin,
                 // Advance to the next field.
                 ++f;
                 if (f == fend) {
-                    throw runtime_error("CSV record contains more than the "
-                                        "expected number of fields.");
+                    throw std::runtime_error("CSV record contains more than "
+                                             "the expected number of fields.");
                 }
                 f->inputValue = cur + 1;
                 if (cur + 1 < end && cur[1] == _inputDialect.getQuote()) {
@@ -514,17 +510,18 @@ char const * Editor::readRecord(char const * const begin,
         }
     }
     if (quoted || escaped) {
-        throw runtime_error("CSV record contains an embedded line terminator, "
-                            "a trailing escape character, or a quoted field "
-                            "without a trailing quote character.");
+        throw std::runtime_error("CSV record contains an embedded line "
+                                 "terminator, a trailing escape character, or "
+                                 "a quoted field without a trailing quote "
+                                 "character.");
     }
     if (f + 1 != fend) {
-        throw runtime_error("CSV record contains less than the expected "
-                            "number of fields.");
+        throw std::runtime_error("CSV record contains less than the expected "
+                                 "number of fields.");
     }
     ptrdiff_t sz = cur - f->inputValue;
     if (sz > MAX_FIELD_SIZE) {
-        throw runtime_error("CSV field value is too long.");
+        throw std::runtime_error("CSV field value is too long.");
     }
     f->inputSize = static_cast<uint16_t>(sz);
     f->outputSize = 0;
@@ -532,8 +529,8 @@ char const * Editor::readRecord(char const * const begin,
     // Set output values for remaining fields to NULL.
     fend = _fields.get() + _numFields;
     for (++f; f != fend; ++f) {
-        string const & null = _outputDialect.getNull();
-        memcpy(f->outputValue, null.data(), null.size());
+        std::string const & null = _outputDialect.getNull();
+        std::memcpy(f->outputValue, null.data(), null.size());
         f->outputSize = static_cast<uint16_t>(null.size());
         f->flags = 0;
     }
@@ -589,32 +586,32 @@ char * Editor::writeRecord(char * buf) const {
             buf[size++] = delimiter;
         }
         if (size + sz > MAX_LINE_SIZE - 1) {
-            throw runtime_error("Output CSV record is longer than the "
-                                "maximum supported line length.");
+            throw std::runtime_error("Output CSV record is longer than the "
+                                     "maximum supported line length.");
         }
-        memcpy(buf + size, val, sz);
+        std::memcpy(buf + size, val, sz);
         size += sz;
     }
     buf[size++] = '\n';
     return buf + size;
 }
 
-string const Editor::get(int i, bool decode) const {
+std::string const Editor::get(int i, bool decode) const {
     if (i < 0 || i >= _numInputFields) {
-        throw runtime_error("Invalid input field.");
+        throw std::runtime_error("Invalid input field.");
     }
     Field const & f = _fields[i];
     char const * val = f.inputValue;
     size_t sz = f.inputSize;
     if (decode) {
         if (_inputDialect.isNull(val, sz)) {
-            throw runtime_error("Input field value is NULL.");
+            throw std::runtime_error("Input field value is NULL.");
         }
         if ((f.flags & Field::DECODE) != 0) {
             return _inputDialect.decode(val, sz);
         }
     }
-    return string(val, sz);
+    return std::string(val, sz);
 }
 
 bool Editor::setNull(int i) {
@@ -625,14 +622,14 @@ bool Editor::setNull(int i) {
     if (!f->outputValue) {
         return false;
     }
-    string const & null = _outputDialect.getNull();
-    memcpy(f->outputValue, null.data(), null.size());
+    std::string const & null = _outputDialect.getNull();
+    std::memcpy(f->outputValue, null.data(), null.size());
     f->outputSize = static_cast<uint16_t>(null.size());
     f->flags |= Field::EDITED;
     return true;
 }
 
-bool Editor::set(int i, string const & val) {
+bool Editor::set(int i, std::string const & val) {
     if (i < 0 || i >= _numFields) {
         return false;
     }
@@ -670,7 +667,7 @@ bool Editor::set(int i, U val) { \
     if (!f->outputValue) { \
         return false; \
     } \
-    int sz = snprintf(buf, sizeof(buf), "%" #format, static_cast<V>(val)); \
+    int sz = std::snprintf(buf, sizeof(buf), "%" #format, static_cast<V>(val)); \
     assert(sz > 0 && sz < MAX_FIELD_SIZE); \
     f->outputSize = static_cast<uint16_t>( \
         _outputDialect.encode(f->outputValue, buf, static_cast<size_t>(sz))); \
@@ -701,14 +698,14 @@ void Editor::defineOptions(po::options_description & opts) {
     po::options_description in("\\___________ Input CSV format", 80);
     Dialect::defineOptions(in, "in.csv.");
     in.add_options()
-        ("in.csv.field", po::value<vector<string> >(),
+        ("in.csv.field", po::value<std::vector<std::string> >(),
          "Input CSV field names, in order of occurrence. Specify this "
          "option as many times as there are input fields. Input field "
          "names must be unique.");
     po::options_description out("\\_________ Output CSV format", 80);
     Dialect::defineOptions(out, "out.csv.");
     out.add_options()
-        ("out.csv.field", po::value<vector<string> >(),
+        ("out.csv.field", po::value<std::vector<std::string> >(),
          "Output CSV field names, in order of occurrence. To retain an "
          "input field in the output, include it in the output field list. "
          "There is no requirement that an input field be listed only once, "
@@ -719,39 +716,39 @@ void Editor::defineOptions(po::options_description & opts) {
     opts.add(in).add(out);
 }
 
-void Editor::_initialize(vector<string> const & inputFieldNames,
-                         vector<string> const & outputFieldNames)
+void Editor::_initialize(std::vector<std::string> const & inputFieldNames,
+                         std::vector<std::string> const & outputFieldNames)
 {
-    typedef pair<FieldMap::iterator, bool> Mapping;
+    typedef std::pair<FieldMap::iterator, bool> Mapping;
 
     int i = 0; // total number of fields
     for (; i < _numInputFields; ++i) {
-        string const & name = inputFieldNames[i];
-        Mapping m = _fieldMap.insert(pair<string, int>(name, i));
+        std::string const & name = inputFieldNames[i];
+        Mapping m = _fieldMap.insert(std::pair<std::string, int>(name, i));
         if (!m.second) {
-            throw runtime_error("The input CSV field name list contains "
-                                "duplicates.");
+            throw std::runtime_error("The input CSV field name list contains "
+                                     "duplicates.");
         }
         Field * f = &_fields[i];
         // Before the first readRecord() call, assign NULL to all input
         // fields.
-        string const & null = _inputDialect.getNull();
+        std::string const & null = _inputDialect.getNull();
         f->inputValue = null.data();
         f->inputSize = static_cast<uint16_t>(null.size());
     }
     for (int j = 0; j < _numOutputFields; ++j) {
-        string const & name = outputFieldNames[j];
-        Mapping m = _fieldMap.insert(pair<string, int>(name, i));
+        std::string const & name = outputFieldNames[j];
+        Mapping m = _fieldMap.insert(std::pair<std::string, int>(name, i));
         if (m.second) {
             // The output field name does not match any input field. Create
             // a new output field and assign NULL to the output value.
             Field * f = &_fields[i];
-            f->outputValue = static_cast<char *>(malloc(MAX_FIELD_SIZE));
+            f->outputValue = static_cast<char *>(std::malloc(MAX_FIELD_SIZE));
             if (!f->outputValue) {
-                throw bad_alloc();
+                throw std::bad_alloc();
             }
-            string const & null = _outputDialect.getNull();
-            memcpy(f->outputValue, null.data(), null.size());
+            std::string const & null = _outputDialect.getNull();
+            std::memcpy(f->outputValue, null.data(), null.size());
             f->outputSize = static_cast<uint16_t>(null.size());
             _outputs[j] = i++;
         } else {
@@ -762,9 +759,10 @@ void Editor::_initialize(vector<string> const & inputFieldNames,
             if (!f->outputValue) {
                 // f is also an input field, so there is no need
                 // to set an output value here.
-                f->outputValue = static_cast<char *>(malloc(MAX_FIELD_SIZE));
+                f->outputValue = static_cast<char *>(
+                    std::malloc(MAX_FIELD_SIZE));
                 if (!f->outputValue) {
-                    throw bad_alloc();
+                    throw std::bad_alloc();
                 }
             }
             _outputs[j] = k;
@@ -776,13 +774,13 @@ void Editor::_initialize(vector<string> const & inputFieldNames,
 template <> bool Editor::_get<bool>(int i) const {
     char buf[MAX_FIELD_SIZE];
     if (i < 0 || i >= _numInputFields) {
-        throw runtime_error("Invalid input field");
+        throw std::runtime_error("Invalid input field");
     }
     Field const & f = _fields[i];
     char const * val = f.inputValue;
     size_t sz = f.inputSize;
     if (_inputDialect.isNull(val, sz)) {
-        throw runtime_error("Input field value is NULL.");
+        throw std::runtime_error("Input field value is NULL.");
     }
     // Decode field value if necessary.
     if ((f.flags & Field::DECODE) != 0) {
@@ -804,20 +802,20 @@ template <> bool Editor::_get<bool>(int i) const {
             return true;
         }
     }
-    throw runtime_error("Failed to convert field value to a C++ bool.");
+    throw std::runtime_error("Failed to convert field value to a C++ bool.");
     return false; // unreachable
 }
 
 template <> char Editor::_get<char>(int i) const {
     char buf[MAX_FIELD_SIZE];
     if (i < 0 || i >= _numInputFields) {
-        throw runtime_error("Invalid input field");
+        throw std::runtime_error("Invalid input field");
     }
     Field const & f = _fields[i];
     char const * val = f.inputValue;
     size_t sz = f.inputSize;
     if (_inputDialect.isNull(val, sz)) {
-        throw runtime_error("Input field value is NULL.");
+        throw std::runtime_error("Input field value is NULL.");
     }
     // Decode field value if necessary.
     if ((f.flags & Field::DECODE) != 0) {
@@ -825,7 +823,7 @@ template <> char Editor::_get<char>(int i) const {
         val = buf;
     }
     if (sz != 1) {
-        throw runtime_error("Failed to convert field to a C++ char.");
+        throw std::runtime_error("Failed to convert field to a C++ char.");
     }
     return val[0];
 }
@@ -839,13 +837,13 @@ template <> char Editor::_get<char>(int i) const {
 
 Editor::CharConstPtrPair const Editor::_getFieldText(int i, char * buf) const {
     if (i < 0 || i >= _numInputFields) {
-        throw runtime_error("Invalid input field");
+        throw std::runtime_error("Invalid input field");
     }
     Field const & f = _fields[i];
     char const * val = f.inputValue;
     size_t sz = f.inputSize;
     if (_inputDialect.isNull(val, sz)) {
-        throw runtime_error("Input field value is NULL.");
+        throw std::runtime_error("Input field value is NULL.");
     }
     if (f.flags & Field::DECODE) {
         sz = _inputDialect.decode(buf, val, sz);
@@ -857,10 +855,10 @@ Editor::CharConstPtrPair const Editor::_getFieldText(int i, char * buf) const {
     for (; end > val && isspace(end[-1]); --end) { }
     sz = static_cast<size_t>(end - val);
     if (sz == 0) {
-        throw runtime_error("Cannot convert empty field to a value");
+        throw std::runtime_error("Cannot convert empty field to a value");
     }
     if (end == f.inputValue + f.inputSize) {
-        memcpy(buf, val, sz);
+        std::memcpy(buf, val, sz);
         buf[sz] = '\0';
         val = buf;
         end = buf + sz;
@@ -876,11 +874,11 @@ template <> U Editor::_get<U>(int i) const { \
     errno = 0; \
     V v = strto ## suffix(f.first, &e, 10); \
     if (e != f.second) { \
-        throw runtime_error("Cannot convert field value to a C++ " #U); \
+        throw std::runtime_error("Cannot convert field value to a C++ " #U); \
     } else if ((errno == ERANGE) || \
-               v > numeric_limits<U>::max() || \
-               v < numeric_limits<U>::min()) { \
-        throw runtime_error("Field value does not fit into a C++ " #U); \
+               v > std::numeric_limits<U>::max() || \
+               v < std::numeric_limits<U>::min()) { \
+        throw std::runtime_error("Field value does not fit into a C++ " #U); \
     } \
     return static_cast<U>(v); \
 }
@@ -892,7 +890,7 @@ template <> U Editor::_get<U>(int i) const { \
     char * e = 0; \
     U u = strto ## suffix(f.first, &e); \
     if (e != f.second) { \
-        throw runtime_error("Cannot convert field value to a C++ " #U); \
+        throw std::runtime_error("Cannot convert field value to a C++ " #U); \
     } \
     return u; \
 }

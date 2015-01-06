@@ -26,20 +26,6 @@
 
 #include "Constants.h"
 
-using std::fabs;
-using std::sin;
-using std::cos;
-using std::acos;
-using std::atan2;
-using std::sqrt;
-using std::max;
-using std::pair;
-using std::runtime_error;
-using std::swap;
-using std::vector;
-
-using boost::scoped_array;
-
 namespace po = boost::program_options;
 
 
@@ -47,7 +33,7 @@ namespace lsst {
 namespace partition {
 
 int segments(double latMin, double latMax, double width) {
-    double lat = max(fabs(latMin), fabs(latMax));
+    double lat = std::max(std::fabs(latMin), std::fabs(latMax));
     if (lat > 90.0 - 1/3600.0) {
         return 1;
     }
@@ -57,22 +43,22 @@ int segments(double latMin, double latMax, double width) {
         width = 1/3600;
     }
     lat *= RAD_PER_DEG;
-    double cw = cos(width * RAD_PER_DEG);
-    double sl = sin(lat);
-    double cl = cos(lat);
+    double cw = std::cos(width * RAD_PER_DEG);
+    double sl = std::sin(lat);
+    double cl = std::cos(lat);
     double x = cw - sl * sl;
     double u = cl * cl;
-    double y = sqrt(fabs(u * u - x * x));
+    double y = std::sqrt(std::fabs(u * u - x * x));
     return static_cast<int>(
-        floor(360.0 / fabs(DEG_PER_RAD * atan2(y, x))));
+        std::floor(360.0 / std::fabs(DEG_PER_RAD * std::atan2(y, x))));
 }
 
 double segmentWidth(double latMin, double latMax, int numSegments) {
-    double lat = max(fabs(latMin), fabs(latMax)) * RAD_PER_DEG;
-    double cw = cos(RAD_PER_DEG * (360.0 / numSegments));
-    double sl = sin(lat);
-    double cl = cos(lat);
-    return acos(cw * cl * cl + sl * sl) * DEG_PER_RAD;
+    double lat = std::max(std::fabs(latMin), std::fabs(latMax)) * RAD_PER_DEG;
+    double cw = std::cos(RAD_PER_DEG * (360.0 / numSegments));
+    double sl = std::sin(lat);
+    double cl = std::cos(lat);
+    return std::acos(cw * cl * cl + sl * sl) * DEG_PER_RAD;
 }
 
 
@@ -145,9 +131,9 @@ ChunkLocation const Chunker::locate(
     return loc;
 }
 
-void Chunker::locate(pair<double, double> const & position,
+void Chunker::locate(std::pair<double, double> const & position,
                      int32_t chunkId,
-                     vector<ChunkLocation> & locations) const
+                     std::vector<ChunkLocation> & locations) const
 {
     // TODO(smm): find a way to break this into more manageable pieces.
     // Find non-overlap location of position.
@@ -242,22 +228,22 @@ void Chunker::locate(pair<double, double> const & position,
     }
 }
 
-vector<int32_t> const Chunker::getChunksIn(SphericalBox const & region,
-                                           uint32_t node,
-                                           uint32_t numNodes) const
+std::vector<int32_t> const Chunker::getChunksIn(SphericalBox const & region,
+                                                uint32_t node,
+                                                uint32_t numNodes) const
 {
     if (numNodes == 0) {
-        throw runtime_error("There must be at least one node "
-                            "to assign chunks to");
+        throw std::runtime_error("There must be at least one node "
+                                 "to assign chunks to");
     }
     if (node >= numNodes) {
-        throw runtime_error("Node number must be in range [0, numNodes)");
+        throw std::runtime_error("Node number must be in range [0, numNodes)");
     }
-    vector<int32_t> chunks;
+    std::vector<int32_t> chunks;
     int32_t const minStripe = _getStripe(
-        locate(pair<double,double>(0.0, region.getLatMin())).chunkId);
+        locate(std::pair<double,double>(0.0, region.getLatMin())).chunkId);
     int32_t const maxStripe = _getStripe(
-        locate(pair<double,double>(0.0, region.getLatMax())).chunkId);
+        locate(std::pair<double,double>(0.0, region.getLatMax())).chunkId);
     // The slow and easy route - loop over every chunk, see if it belongs to
     // the given node, and if it also intersects with region, return it.
     for (int32_t stripe = minStripe; stripe <= maxStripe; ++stripe) {
@@ -274,7 +260,9 @@ vector<int32_t> const Chunker::getChunksIn(SphericalBox const & region,
     return chunks;
 }
 
-void Chunker::getSubChunks(vector<int32_t> & subChunks, int32_t chunkId) const {
+void Chunker::getSubChunks(std::vector<int32_t> & subChunks,
+                           int32_t chunkId) const
+{
     int32_t subStripe = _getStripe(chunkId)*_numSubStripesPerStripe;
     for (int32_t ss = 0; ss < _numSubStripesPerStripe; ++ss) {
         for (int32_t sc = 0; sc < _numSubChunksPerChunk[subStripe + ss]; ++sc) {
@@ -298,13 +286,13 @@ void Chunker::_initialize(double overlap,
                           int32_t numSubStripesPerStripe)
 {
     if (numStripes < 1 || numSubStripesPerStripe < 1) {
-        throw runtime_error(
+        throw std::runtime_error(
             "The number of stripes and sub-stripes per stripe "
             "must be positive.");
     }
     if (overlap < 0.0 || overlap > 10.0) {
-        throw runtime_error("The overlap radius must be in range "
-                            "[0, 10] deg.");
+        throw std::runtime_error("The overlap radius must be in range "
+                                 "[0, 10] deg.");
     }
     int32_t const numSubStripes = numStripes * numSubStripesPerStripe;
     _overlap = overlap;
@@ -313,14 +301,15 @@ void Chunker::_initialize(double overlap,
     double const stripeHeight = 180.0 / numStripes;
     double const subStripeHeight = 180.0 / numSubStripes;
     if (subStripeHeight < overlap) {
-        throw runtime_error("The overlap radius is greater than "
-                            "the sub-stripe height.");
+        throw std::runtime_error("The overlap radius is greater than "
+                                 "the sub-stripe height.");
     }
     _subStripeHeight = subStripeHeight;
-    scoped_array<int32_t> numChunksPerStripe(new int32_t[numStripes]);
-    scoped_array<int32_t> numSubChunksPerChunk(new int32_t[numSubStripes]);
-    scoped_array<double> subChunkWidth(new double[numSubStripes]);
-    scoped_array<double> alpha(new double[numSubStripes]);
+    boost::scoped_array<int32_t> numChunksPerStripe(new int32_t[numStripes]);
+    boost::scoped_array<int32_t> numSubChunksPerChunk(
+        new int32_t[numSubStripes]);
+    boost::scoped_array<double> subChunkWidth(new double[numSubStripes]);
+    boost::scoped_array<double> alpha(new double[numSubStripes]);
     int32_t maxSubChunksPerChunk = 0;
     for (int32_t i = 0; i < numStripes; ++i) {
         // Compute number of chunks in stripe i
@@ -334,22 +323,24 @@ void Chunker::_initialize(double overlap,
             double latMin = ss*subStripeHeight - 90.0;
             double latMax = (ss + 1)*subStripeHeight - 90.0;
             int32_t nsc = segments(latMin, latMax, subStripeHeight) / nc;
-            maxSubChunksPerChunk = max(maxSubChunksPerChunk, nsc);
+            maxSubChunksPerChunk = std::max(maxSubChunksPerChunk, nsc);
             numSubChunksPerChunk[ss] = nsc;
             double scw = 360.0 / (nsc * nc);
             subChunkWidth[ss] = scw;
             // Two points in the sub-stripe separated by a longitude angle
             // of at least a are guaranteed to have angular separation of
             // at least the overlap radius.
-            double a = maxAlpha(overlap, max(fabs(latMin), fabs(latMax)));
+            double a = maxAlpha(
+                overlap, std::max(std::fabs(latMin), std::fabs(latMax)));
             if (a > scw) {
-                throw runtime_error("The overlap radius is greater than "
-                                    "the sub-chunk width.");
+                throw std::runtime_error("The overlap radius is greater than "
+                                         "the sub-chunk width.");
             }
             alpha[ss] = a;
         }
     }
     _maxSubChunksPerChunk = maxSubChunksPerChunk;
+    using std::swap;
     swap(numChunksPerStripe, _numChunksPerStripe);
     swap(numSubChunksPerChunk, _numSubChunksPerChunk);
     swap(subChunkWidth, _subChunkWidth);
@@ -360,7 +351,7 @@ void Chunker::_upDownOverlap(double lon,
                              int32_t chunkId,
                              int32_t stripe,
                              int32_t subStripe,
-                             vector<ChunkLocation> & locations) const
+                             std::vector<ChunkLocation> & locations) const
 {
     int32_t const numChunks = _numChunksPerStripe[stripe];
     int32_t const numSubChunksPerChunk = _numSubChunksPerChunk[subStripe];

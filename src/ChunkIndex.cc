@@ -34,19 +34,6 @@
 #include "Constants.h"
 #include "FileUtils.h"
 
-using std::floor;
-using std::numeric_limits;
-using std::ostream;
-using std::pair;
-using std::pow;
-using std::runtime_error;
-using std::setprecision;
-using std::setw;
-using std::sort;
-using std::sqrt;
-using std::string;
-using std::vector;
-
 namespace fs = boost::filesystem;
 
 
@@ -58,21 +45,22 @@ void ChunkIndex::Stats::clear() {
     min = 0;
     max = 0;
     quartile[0] = 0; quartile[1] = 0; quartile[2] = 0;
-    sigma = numeric_limits<double>::quiet_NaN();
-    skewness = numeric_limits<double>::quiet_NaN();
-    kurtosis = numeric_limits<double>::quiet_NaN();
+    sigma = std::numeric_limits<double>::quiet_NaN();
+    skewness = std::numeric_limits<double>::quiet_NaN();
+    kurtosis = std::numeric_limits<double>::quiet_NaN();
 }
 
 namespace {
-    uint64_t percentile(double p, vector<uint64_t> & v) {
-        typedef vector<uint64_t>::size_type S;
-        S i = std::min(static_cast<S>(floor(p*v.size() + 0.5)), v.size() - 1);
+    uint64_t percentile(double p, std::vector<uint64_t> & v) {
+        typedef std::vector<uint64_t>::size_type S;
+        S i = std::min(static_cast<S>(std::floor(p*v.size() + 0.5)),
+                       v.size() - 1);
         return v[i];
     }
 }
 
-void ChunkIndex::Stats::computeFrom(vector<uint64_t> & counts) {
-    typedef vector<uint64_t>::iterator Iter;
+void ChunkIndex::Stats::computeFrom(std::vector<uint64_t> & counts) {
+    typedef std::vector<uint64_t>::iterator Iter;
     if (counts.empty()) {
         clear();
         return;
@@ -80,7 +68,7 @@ void ChunkIndex::Stats::computeFrom(vector<uint64_t> & counts) {
     n = counts.size();
     nrec = 0;
     max = 0;
-    min = numeric_limits<uint64_t>::max();
+    min = std::numeric_limits<uint64_t>::max();
     // Compute sum, min, and max of record counts.
     for (Iter i = counts.begin(), e = counts.end(); i != e; ++i) {
         uint64_t c = *i;
@@ -88,7 +76,7 @@ void ChunkIndex::Stats::computeFrom(vector<uint64_t> & counts) {
         if (c < min) { min = c; }
         if (c > max) { max = c; }
     }
-    sort(counts.begin(), counts.end());
+    std::sort(counts.begin(), counts.end());
     n = counts.size();
     quartile[0] = percentile(0.25, counts);
     quartile[1] = percentile(0.5,  counts);
@@ -106,12 +94,14 @@ void ChunkIndex::Stats::computeFrom(vector<uint64_t> & counts) {
     m2 /= n;
     m3 /= n;
     m4 /= n;
-    sigma = sqrt(m2);
-    skewness = m3/pow(m2, 1.5);
+    sigma = std::sqrt(m2);
+    skewness = m3/std::pow(m2, 1.5);
     kurtosis = m4/(m2*m2) - 3.0;
 }
 
-void ChunkIndex::Stats::write(ostream & os, string const & indent) const {
+void ChunkIndex::Stats::write(std::ostream & os,
+                              std::string const & indent) const
+{
     os << indent << "\"nrec\":      " << nrec << ",\n"
        << indent << "\"n\":         " << n << ",\n"
        << indent << "\"min\":       " << min << ",\n"
@@ -119,10 +109,10 @@ void ChunkIndex::Stats::write(ostream & os, string const & indent) const {
        << indent << "\"quartile\": [" << quartile[0] << ", "
                                       << quartile[1] << ", "
                                       << quartile[2] << "],\n"
-       << indent << "\"mean\":      " << setprecision(3) << mean << ",\n"
-       << indent << "\"sigma\":     " << setprecision(3) << sigma << ",\n"
-       << indent << "\"skewness\":  " << setprecision(3) << skewness << ",\n"
-       << indent << "\"kurtosis\":  " << setprecision(3) << kurtosis;
+       << indent << "\"mean\":      " << std::setprecision(3) << mean << ",\n"
+       << indent << "\"sigma\":     " << std::setprecision(3) << sigma << ",\n"
+       << indent << "\"skewness\":  " << std::setprecision(3) << skewness << ",\n"
+       << indent << "\"kurtosis\":  " << std::setprecision(3) << kurtosis;
 }
 
 
@@ -144,14 +134,14 @@ ChunkIndex::ChunkIndex(fs::path const & path) :
     _read(path);
 }
 
-ChunkIndex::ChunkIndex(vector<fs::path> const & paths) :
+ChunkIndex::ChunkIndex(std::vector<fs::path> const & paths) :
     _chunks(),
     _subChunks(),
     _modified(false),
     _chunkStats(),
     _subChunkStats()
 {
-    typedef vector<fs::path>::const_iterator Iter;
+    typedef std::vector<fs::path>::const_iterator Iter;
     for (Iter i = paths.begin(), e = paths.end(); i != e; ++i) {
         _read(*i);
     }
@@ -186,18 +176,19 @@ void ChunkIndex::write(fs::path const & path, bool truncate) const {
 
 namespace {
     template <typename K> struct EntryPairCmp {
-        bool operator()(pair<K, ChunkIndex::Entry> const & p1,
-                        pair<K, ChunkIndex::Entry> const & p2) const {
+        bool operator()(std::pair<K, ChunkIndex::Entry> const & p1,
+                        std::pair<K, ChunkIndex::Entry> const & p2) const
+        {
             return p1.first < p2.first;
         }
     };
 }
 
-void ChunkIndex::write(ostream & os, int verbosity) const {
-    typedef pair<int32_t, Entry> Chunk;
-    typedef pair<int64_t, Entry> SubChunk;
+void ChunkIndex::write(std::ostream & os, int verbosity) const {
+    typedef std::pair<int32_t, Entry> Chunk;
+    typedef std::pair<int64_t, Entry> SubChunk;
 
-    static string const INDENT("\t\t");
+    static std::string const INDENT("\t\t");
     if (_modified) {
         _computeStats();
     }
@@ -221,20 +212,20 @@ void ChunkIndex::write(ostream & os, int verbosity) const {
     os << ",\n"
           "\t\"chunks\": [\n";
     // Extract and sort non-empty chunks and sub-chunks.
-    vector<Chunk> chunks;
-    vector<SubChunk> subChunks;
+    std::vector<Chunk> chunks;
+    std::vector<SubChunk> subChunks;
     chunks.reserve(_chunks.size());
     for (ChunkIter c = _chunks.begin(), e = _chunks.end(); c != e; ++c) {
         chunks.push_back(*c);
     }
-    sort(chunks.begin(), chunks.end(), EntryPairCmp<int32_t>());
+    std::sort(chunks.begin(), chunks.end(), EntryPairCmp<int32_t>());
     if (verbosity > 0) {
         subChunks.reserve(_subChunks.size());
         for (SubChunkIter s = _subChunks.begin(), e = _subChunks.end();
              s != e; ++s) {
             subChunks.push_back(*s);
         }
-        sort(subChunks.begin(), subChunks.end(), EntryPairCmp<int64_t>());
+        std::sort(subChunks.begin(), subChunks.end(), EntryPairCmp<int64_t>());
     }
     // Print out chunk record counts.
     size_t sc = 0;
@@ -244,7 +235,7 @@ void ChunkIndex::write(ostream & os, int verbosity) const {
         }
         int32_t const chunkId = chunks[c].first;
         Entry const * e = &chunks[c].second;
-        os << "\t\t{\"id\":  " << setw(5) << chunkId << ", \"nrec\": ["
+        os << "\t\t{\"id\":  " << std::setw(5) << chunkId << ", \"nrec\": ["
            << e->numRecords << ", " << e->numOverlapRecords << "]";
         if (verbosity > 0) {
             // Print record counts for sub-chunks of chunkId.
@@ -260,7 +251,7 @@ void ChunkIndex::write(ostream & os, int verbosity) const {
                 int32_t subChunkId = static_cast<int32_t>(
                     subChunks[s].first & 0xfffffff);
                 e = &subChunks[s].second;
-                os << "\t\t\t{\"id\":" << setw(5) << subChunkId
+                os << "\t\t\t{\"id\":" << std::setw(5) << subChunkId
                    << ", \"nrec\": [" << e->numRecords
                    << ", " << e->numOverlapRecords << "]}";
             }
@@ -332,7 +323,7 @@ ChunkIndex::Entry const ChunkIndex::EMPTY;
 void ChunkIndex::_read(fs::path const & path) {
     InputFile f(path);
     if (f.size() % ENTRY_SIZE != 0) {
-        throw runtime_error("Invalid chunk index file.");
+        throw std::runtime_error("Invalid chunk index file.");
     }
     if (f.size() == 0) {
         return;
@@ -360,7 +351,7 @@ void ChunkIndex::_computeStats() const {
         _overlapSubChunkStats.clear();
         return;
     }
-    vector<uint64_t> counts, overlapCounts;
+    std::vector<uint64_t> counts, overlapCounts;
     counts.reserve(_subChunks.size());
     overlapCounts.reserve(_subChunks.size());
     for (ChunkIter c = _chunks.begin(), e = _chunks.end(); c != e; ++c) {

@@ -33,13 +33,6 @@
 #include "Geometry.h"
 #include "Hash.h"
 
-using std::ostream;
-using std::pair;
-using std::runtime_error;
-using std::setw;
-using std::sort;
-using std::vector;
-
 namespace fs = boost::filesystem;
 
 
@@ -53,7 +46,7 @@ HtmIndex::HtmIndex(int level) :
     _level(level)
 {
     if (level < 0 || level > HTM_MAX_LEVEL) {
-        throw runtime_error("Invalid HTM subdivision level.");
+        throw std::runtime_error("Invalid HTM subdivision level.");
     }
 }
 
@@ -66,15 +59,15 @@ HtmIndex::HtmIndex(fs::path const & path) :
     _read(path);
 }
 
-HtmIndex::HtmIndex(vector<fs::path> const & paths) :
+HtmIndex::HtmIndex(std::vector<fs::path> const & paths) :
     _numRecords(0),
     _map(),
     _keys(),
     _level(-1)
 {
-    typedef vector<fs::path>::const_iterator Iter;
+    typedef std::vector<fs::path>::const_iterator Iter;
     if (paths.empty()) {
-        throw runtime_error("Empty HTM index file list.");
+        throw std::runtime_error("Empty HTM index file list.");
     }
     for (Iter i = paths.begin(), e = paths.end(); i != e; ++i) {
         _read(*i);
@@ -92,7 +85,7 @@ HtmIndex::~HtmIndex() { }
 
 uint32_t HtmIndex::mapToNonEmpty(uint32_t id) const {
     if (_map.empty()) {
-        throw runtime_error("HTM index is empty.");
+        throw std::runtime_error("HTM index is empty.");
     }
     Map::const_iterator i = _map.find(id);
     if (i != _map.end()) {
@@ -104,7 +97,7 @@ uint32_t HtmIndex::mapToNonEmpty(uint32_t id) const {
         for (Map::const_iterator i = _map.begin(), e = _map.end(); i != e; ++i) {
             _keys.push_back(i->first);
         }
-        sort(_keys.begin(), _keys.end());
+        std::sort(_keys.begin(), _keys.end());
     }
     return _keys[hash(id) % _keys.size()];
 }
@@ -122,15 +115,15 @@ void HtmIndex::write(fs::path const & path, bool truncate) const {
     f.append(buf.get(), numBytes);
 }
 
-void HtmIndex::write(ostream & os) const {
-    typedef vector<pair<uint32_t, uint64_t> >::const_iterator Iter;
+void HtmIndex::write(std::ostream & os) const {
+    typedef std::vector<std::pair<uint32_t, uint64_t> >::const_iterator Iter;
     // Extract non-empty triangles and sort them by HTM ID.
-    vector<pair<uint32_t, uint64_t> > tris;
+    std::vector<std::pair<uint32_t, uint64_t> > tris;
     tris.reserve(_map.size());
     for (Map::const_iterator i = _map.begin(), e = _map.end(); i != e; ++i) {
-        tris.push_back(pair<uint32_t, uint64_t>(i->first, i->second));
+        tris.push_back(std::pair<uint32_t, uint64_t>(i->first, i->second));
     }
-    sort(tris.begin(), tris.end());
+    std::sort(tris.begin(), tris.end());
     // Pretty-print the index in JSON format.
     os << "{\n"
           "\"nrec\":      " << _numRecords << ",\n"
@@ -139,8 +132,8 @@ void HtmIndex::write(ostream & os) const {
         if (i != b) {
             os << ",\n";
         }
-        os << "\t{\"id\":"   << setw(10) << i->first
-           << ", \"nrec\":"  << setw(8)  << i->second
+        os << "\t{\"id\":"   << std::setw(10) << i->first
+           << ", \"nrec\":"  << std::setw(8)  << i->second
            << "}";
     }
     os << "\n]\n}";
@@ -148,8 +141,8 @@ void HtmIndex::write(ostream & os) const {
 
 void HtmIndex::add(uint32_t id, uint64_t numRecords) {
     if (htmLevel(id) != _level) {
-        throw runtime_error("HTM ID is invalid or has an inconsistent "
-                            "subdivision level.");
+        throw std::runtime_error("HTM ID is invalid or has an inconsistent "
+                                 "subdivision level.");
     }
     if (numRecords > 0) {
         _keys.clear();
@@ -163,7 +156,7 @@ void HtmIndex::merge(HtmIndex const & idx) {
         return;
     }
     if (idx._level != _level) {
-        throw runtime_error("HTM index subdivision levels do not match.");
+        throw std::runtime_error("HTM index subdivision levels do not match.");
     }
     _keys.clear();
     for (Map::const_iterator i = idx._map.begin(), e = idx._map.end();
@@ -192,7 +185,7 @@ void HtmIndex::swap(HtmIndex & idx) {
 void HtmIndex::_read(fs::path const & path) {
     InputFile f(path);
     if (f.size() == 0 || f.size() % ENTRY_SIZE != 0) {
-        throw runtime_error("Invalid HTM index file.");
+        throw std::runtime_error("Invalid HTM index file.");
     }
     boost::scoped_array<uint8_t> data(new uint8_t[f.size()]);
     f.read(data.get(), 0, f.size());
@@ -205,15 +198,17 @@ void HtmIndex::_read(fs::path const & path) {
         uint64_t numRecords = decode<uint64_t>(b + 4);
         int level = htmLevel(id);
         if (level < 0 || level > HTM_MAX_LEVEL) {
-            throw runtime_error("Invalid HTM index file.");
+            throw std::runtime_error("Invalid HTM index file.");
         }
         if (_level < 0) {
             _level = level;
         } else if (level != _level) {
-            throw runtime_error("HTM index subdivision levels do not match.");
+            throw std::runtime_error("HTM index subdivision levels do not "
+                                     "match.");
         }
         if (numRecords == 0) {
-            throw runtime_error("HTM index file contains an empty triangle.");
+            throw std::runtime_error("HTM index file contains an empty "
+                                     "triangle.");
         }
         _map[id] += numRecords;
         _numRecords += numRecords;

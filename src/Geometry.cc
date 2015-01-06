@@ -29,19 +29,7 @@
 
 #include "Constants.h"
 
-using std::fabs;
-using std::sin;
-using std::cos;
-using std::atan2;
-using std::sqrt;
-using std::min;
-using std::max;
-using std::pair;
-using std::runtime_error;
-using std::swap;
-using std::vector;
-
-using boost::math::constants::pi;
+namespace bmc = boost::math::constants;
 
 
 namespace lsst {
@@ -126,21 +114,8 @@ Vector3d const * const htmRootVert[24] = {
     &Y,  &Z,  &X   // N3
 };
 
-// Edge normal triplet for each HTM root triangle.
-Vector3d const * const htmRootEdge[24] = {
-    &Y,  &X,  &NZ, // S0
-    &NX, &Y,  &NZ, // S1
-    &NY, &NX, &NZ, // S2
-    &X,  &NY, &NZ, // S3
-    &NY, &X,  &Z,  // N0
-    &NX, &NY, &Z,  // N1
-    &Y,  &NX, &Z,  // N2
-    &X,  &Y,  &Z   // N3
-};
-
 // Return the number of the HTM root triangle containing v.
-inline uint32_t rootNumFor(Vector3d const &v)
-{
+inline uint32_t rootNumFor(Vector3d const &v) {
     if (v(2) < 0.0) {
         // S0, S1, S2, S3
         if (v(1) > 0.0) {
@@ -178,26 +153,26 @@ double reduceLon(double lon) {
 
 double maxAlpha(double r, double centerLat) {
     if (r < 0.0 || r > 90.0) {
-        throw runtime_error("Radius must lie in range [0, 90] deg.");
+        throw std::runtime_error("Radius must lie in range [0, 90] deg.");
     }
     if (r == 0.0) {
         return 0.0;
     }
     double lat = clampLat(centerLat);
-    if (fabs(lat) + r > 90.0 - 1/3600.0) {
+    if (std::fabs(lat) + r > 90.0 - 1/3600.0) {
         return 180.0;
     }
     r *= RAD_PER_DEG;
     lat *= RAD_PER_DEG;
-    double y = sin(r);
-    double x = sqrt(fabs(cos(lat - r) * cos(lat + r)));
-    return DEG_PER_RAD * fabs(atan(y / x));
+    double y = std::sin(r);
+    double x = std::sqrt(std::fabs(std::cos(lat - r) * std::cos(lat + r)));
+    return DEG_PER_RAD * std::fabs(atan(y / x));
 }
 
 uint32_t htmId(Vector3d const &v, int level) {
     // See http://research.microsoft.com/apps/pubs/default.aspx?id=64531
     if (level < 0 || level > HTM_MAX_LEVEL) {
-        throw runtime_error("Invalid HTM subdivision level.");
+        throw std::runtime_error("Invalid HTM subdivision level.");
     }
     uint32_t id = rootNumFor(v);
     if (level == 0) {
@@ -268,21 +243,21 @@ int htmLevel(uint32_t id) {
     return static_cast<int>(level >> 1);
 }
 
-Vector3d const cartesian(pair<double, double> const &lonLat) {
+Vector3d const cartesian(std::pair<double, double> const &lonLat) {
     double lon = lonLat.first * RAD_PER_DEG;
     double lat = lonLat.second * RAD_PER_DEG;
-    double sinLon = sin(lon);
-    double cosLon = cos(lon);
-    double sinLat = sin(lat);
-    double cosLat = cos(lat);
+    double sinLon = std::sin(lon);
+    double cosLon = std::cos(lon);
+    double sinLat = std::sin(lat);
+    double cosLat = std::cos(lat);
     return Vector3d(cosLon * cosLat, sinLon * cosLat, sinLat);
 }
 
-pair<double, double> const spherical(Vector3d const &v) {
-    pair<double, double> sc(0.0, 0.0);
+std::pair<double, double> const spherical(Vector3d const &v) {
+    std::pair<double, double> sc(0.0, 0.0);
     double d2 = v(0)*v(0) + v(1)*v(1);
     if (d2 != 0.0) {
-        double lon = atan2(v(1), v(0)) * DEG_PER_RAD;
+        double lon = std::atan2(v(1), v(0)) * DEG_PER_RAD;
         if (lon < 0.0) {
             lon += 360.0;
             if (lon == 360.0) {
@@ -292,7 +267,7 @@ pair<double, double> const spherical(Vector3d const &v) {
         sc.first = lon;
     }
     if (v(2) != 0.0) {
-        sc.second = clampLat(atan2(v(2), sqrt(d2)) * DEG_PER_RAD);
+        sc.second = clampLat(std::atan2(v(2), std::sqrt(d2)) * DEG_PER_RAD);
     }
     return sc;
 }
@@ -304,7 +279,7 @@ double angSep(Vector3d const & v0, Vector3d const & v1) {
     if (cs == 0.0 && ss == 0.0) {
         return 0.0;
     }
-    return atan2(ss, cs);
+    return std::atan2(ss, cs);
 }
 
 
@@ -314,7 +289,7 @@ SphericalTriangle::SphericalTriangle(uint32_t id) : _m(), _mi() {
     // See http://research.microsoft.com/apps/pubs/default.aspx?id=64531
     int level = htmLevel(id);
     if (level < 0) {
-        throw runtime_error("Invalid HTM ID.");
+        throw std::runtime_error("Invalid HTM ID.");
     }
     // The 3 MSBs of the ID identify the root triangle of id. Each subsequent
     // pair of bits in the ID identifies one of 4 child triangles relative to
@@ -388,7 +363,7 @@ double SphericalTriangle::area() const {
     Vector3d p01 = (vertex(1) + vertex(0)).cross(vertex(1) - vertex(0));
     Vector3d p12 = (vertex(2) + vertex(1)).cross(vertex(2) - vertex(1));
     Vector3d p20 = (vertex(0) + vertex(2)).cross(vertex(0) - vertex(2));
-    return (2.0*pi<double>() -
+    return (2.0*bmc::pi<double>() -
             angSep(p20, p01) - angSep(p01, p12) - angSep(p12, p20));
 }
 
@@ -501,8 +476,8 @@ class LonRangeList {
 public:
     // A new range list contains a single range [-π,π].
     LonRangeList() : _numRanges(1) {
-        _ranges[0].first = -pi<double>();
-        _ranges[0].second = pi<double>();
+        _ranges[0].first = -bmc::pi<double>();
+        _ranges[0].second = bmc::pi<double>();
     }
 
     // Is this range list empty? If so, extent() == 0.0.
@@ -510,8 +485,8 @@ public:
     // Is this range list full? If so, extent() == 2π.
     bool full() const {
         return _numRanges == 1 &&
-               _ranges[0].first == -pi<double>() &&
-               _ranges[0].second == pi<double>();
+               _ranges[0].first == -bmc::pi<double>() &&
+               _ranges[0].second == bmc::pi<double>();
     }
     void clear() { _numRanges = 0; }
     // Intersect this range list with the given longitude angle range.
@@ -520,13 +495,13 @@ public:
     double extent() const;
 
 private:
-    pair<double, double> _ranges[4];
+    std::pair<double, double> _ranges[4];
     int _numRanges;
 };
 
 void LonRangeList::clip(double lon0, double lon1) {
     assert(lon0 != lon1);
-    pair<double, double> out[4];
+    std::pair<double, double> out[4];
     int j = 0;
     for (int i = 0; i < _numRanges; ++i) {
         double clon0 = _ranges[i].first;
@@ -534,8 +509,8 @@ void LonRangeList::clip(double lon0, double lon1) {
         assert(clon0 < clon1);
         if (lon0 < lon1) {
             if (lon0 < clon1 && lon1 > clon0) {
-                out[j].first = max(lon0, clon0);
-                out[j].second = min(lon1, clon1);
+                out[j].first = std::max(lon0, clon0);
+                out[j].second = std::min(lon1, clon1);
                 if (out[j].first != out[j].second) {
                     ++j;
                 }
@@ -543,7 +518,7 @@ void LonRangeList::clip(double lon0, double lon1) {
         } else {
             if (clon0 < lon1) {
                 out[j].first = clon0;
-                out[j].second = min(clon1, lon1);
+                out[j].second = std::min(clon1, lon1);
                 ++j;
                 if (clon1 > lon0) {
                     out[j].first = lon0;
@@ -551,7 +526,7 @@ void LonRangeList::clip(double lon0, double lon1) {
                     ++j;
                 }
             } else if (clon1 > lon0) {
-                out[j].first = max(clon0, lon0);
+                out[j].first = std::max(clon0, lon0);
                 out[j].second = clon1;
                 ++j;
             }
@@ -633,7 +608,7 @@ double zArea(Vector3d const * inVe, // input (vertex, edge) pair array
             // The quadratic equation for the intersection points has solutions,
             // and edges on z=zmin haven't been completely clipped away by other
             // edges.
-            double lambda = sqrt(v);
+            double lambda = std::sqrt(v);
             // Compute unnormalized intersection points v0, v1.
             Vector3d v0 = zmin * p + lambda * nc;
             Vector3d v1 = zmin * p - lambda * nc;
@@ -669,7 +644,7 @@ double zArea(Vector3d const * inVe, // input (vertex, edge) pair array
                 // Clip existing edges on the z=zmin small circle against the
                 // edge (represented as a longitude angle segment) formed by the
                 // intersection of this edge half-space with z=zmin.
-                bot.clip(atan2(v0(1), v0(0)), atan2(v1(1), v1(0)));
+                bot.clip(std::atan2(v0(1), v0(0)), std::atan2(v1(1), v1(0)));
             }
         } else if (n(2)*zmin < 0.0) {
             // The great circle of the edge and the z=zmin small circle do not
@@ -685,7 +660,7 @@ double zArea(Vector3d const * inVe, // input (vertex, edge) pair array
         z2 = zmax*zmax;
         v = u - n2*z2;
         if (v > 0.0 && !top.empty()) {
-            double lambda = sqrt(v);
+            double lambda = std::sqrt(v);
             // Compute unnormalized intersection points v0, v1.
             Vector3d v0 = zmax * p - lambda * nc;
             Vector3d v1 = zmax * p + lambda * nc;
@@ -708,7 +683,7 @@ double zArea(Vector3d const * inVe, // input (vertex, edge) pair array
                     // angle αᵥ at vertex v = v1.
                     angle += angSep(ncv1, Vector3d(v1(1), -v1(0), 0.0));
                 }
-                top.clip(atan2(v1(1), v1(0)), atan2(v0(1), v0(0)));
+                top.clip(std::atan2(v1(1), v1(0)), std::atan2(v0(1), v0(0)));
             }
         } else if (n(2)*zmax < 0.0) {
             top.clear();
@@ -725,7 +700,8 @@ double zArea(Vector3d const * inVe, // input (vertex, edge) pair array
         chi = 0.0;
     }
     // Subtract Σ αᵥ and Σ cos(φᵤ) ∆θᵤ.
-    double area = 2.0*pi<double>()*chi - angle + top.extent()*zmax - bot.extent()*zmin;
+    double area = 2.0*bmc::pi<double>()*chi - angle +
+                  top.extent()*zmax - bot.extent()*zmin;
     return area < 0.0 ? 0.0 : area;
 }
 
@@ -741,8 +717,8 @@ double SphericalTriangle::intersectionArea(SphericalBox const & box) const {
         // box completely contains this triangle.
         return area();
     }
-    double const zmin = sin(box.getLatMin()*RAD_PER_DEG);
-    double const zmax = sin(box.getLatMax()*RAD_PER_DEG);
+    double const zmin = std::sin(box.getLatMin()*RAD_PER_DEG);
+    double const zmax = std::sin(box.getLatMax()*RAD_PER_DEG);
     if (zmin >= zmax) {
         return 0.0;
     }
@@ -765,29 +741,29 @@ double SphericalTriangle::intersectionArea(SphericalBox const & box) const {
             // Punt for now, because the intersection can be non-convex.
             // TODO(smm): split non-convex boxes into 2 convex boxes and sum
             //            their intersection areas to make this fully general.
-            throw runtime_error("Cannot compute triangle-box intersection "
-                                "area: spherical box has longitude angle "
-                                "extent > 180 deg.");
+            throw std::runtime_error("Cannot compute triangle-box intersection "
+                                     "area: spherical box has longitude angle "
+                                     "extent > 180 deg.");
         }
         // Intersect with the half-space lon >= box.getLonMin().
         double lon = RAD_PER_DEG * box.getLonMin();
         numVerts = intersect(
-            in, numVerts, Vector3d(-sin(lon), cos(lon), 0.0), out);
+            in, numVerts, Vector3d(-std::sin(lon), std::cos(lon), 0.0), out);
         if (numVerts == 0) {
             return 0.0;
         }
-        swap(in, out);
+        std::swap(in, out);
         // If the longitude angle extent is close to 180 deg, avoid
         // intersecting with (nearly) the same half-space twice.
         if (lonExtent < 180.0 - EPSILON_DEG) {
             // Intersect with the half-space lon <= box.getLonMax().
             lon = RAD_PER_DEG * box.getLonMax();
             numVerts = intersect(
-                in, numVerts, Vector3d(sin(lon), -cos(lon), 0.0), out);
+                in, numVerts, Vector3d(std::sin(lon), -std::cos(lon), 0.0), out);
             if (numVerts == 0) {
                 return 0.0;
             }
-            swap(in, out);
+            std::swap(in, out);
         }
     }
     return zArea(in, numVerts, zmin, zmax);
@@ -802,9 +778,9 @@ SphericalBox::SphericalBox(double lonMin,
                            double latMax)
 {
     if (latMin > latMax) {
-        throw runtime_error("Spherical box latitude angle max < min.");
+        throw std::runtime_error("Spherical box latitude angle max < min.");
     } else if (lonMax < lonMin && (lonMax < 0.0 || lonMin > 360.0)) {
-        throw runtime_error("Spherical box longitude angle max < min.");
+        throw std::runtime_error("Spherical box longitude angle max < min.");
     }
     if (lonMax - lonMin >= 360.0) {
         _lonMin = 0.0;
@@ -824,12 +800,12 @@ SphericalBox::SphericalBox(Vector3d const & v0,
     // Find the bounding circle of the triangle.
     Vector3d cv = v0 + v1 + v2;
     double r = angSep(cv, v0);
-    r = max(r, angSep(cv, v1));
-    r = max(r, angSep(cv, v2));
+    r = std::max(r, angSep(cv, v1));
+    r = std::max(r, angSep(cv, v2));
     r = r*DEG_PER_RAD + 1/3600.0;
     // Construct the bounding box for the bounding circle. This is inexact,
     // but involves less code than a more accurate computation.
-    pair<double, double> c = spherical(cv);
+    std::pair<double, double> c = spherical(cv);
     double alpha = maxAlpha(r, c.second);
     _latMin = clampLat(c.second - r);
     _latMax = clampLat(c.second + r);
@@ -855,13 +831,14 @@ SphericalBox::SphericalBox(Vector3d const & v0,
 
 void SphericalBox::expand(double radius) {
     if (radius < 0.0) {
-        throw runtime_error(
+        throw std::runtime_error(
             "Cannot expand spherical box by a negative angle.");
     } else if (radius == 0.0) {
         return;
     }
     double const extent = getLonExtent();
-    double const alpha = maxAlpha(radius, max(fabs(_latMin), fabs(_latMax)));
+    double const alpha = maxAlpha(
+        radius, std::max(std::fabs(_latMin), std::fabs(_latMax)));
     if (extent + 2.0 * alpha >= 360.0 - 1/3600.0) {
         _lonMin = 0.0;
         _lonMax = 360.0;
@@ -884,12 +861,12 @@ void SphericalBox::expand(double radius) {
 
 double SphericalBox::area() const {
     return RAD_PER_DEG*getLonExtent() *
-           (sin(RAD_PER_DEG*_latMax) - sin(RAD_PER_DEG*_latMin));
+           (std::sin(RAD_PER_DEG*_latMax) - std::sin(RAD_PER_DEG*_latMin));
 }
 
-void SphericalBox::htmIds(vector<uint32_t> & ids, int level) const {
+void SphericalBox::htmIds(std::vector<uint32_t> & ids, int level) const {
     if (level < 0 || level > HTM_MAX_LEVEL) {
-        throw runtime_error("Invalid HTM subdivision level.");
+        throw std::runtime_error("Invalid HTM subdivision level.");
     }
     for (int r = 0; r < 8; ++r) {
         Matrix3d m;
@@ -904,11 +881,11 @@ void SphericalBox::htmIds(vector<uint32_t> & ids, int level) const {
 // levels and box sizes encountered in practice, this is very unlikely to be
 // a performance problem.
 void SphericalBox::_findIds(
-    vector<uint32_t> & ids, // Storage for overlapping triangle IDs.
-    uint32_t id,            // HTM ID of triangle `m`.
-    int level,              // Number of recursions remaining.
-    Matrix3d const & m      // Triangle vertices.
-) const {
+    std::vector<uint32_t> & ids, // Storage for overlapping triangle IDs.
+    uint32_t id,                 // HTM ID of triangle `m`.
+    int level,                   // Number of recursions remaining.
+    Matrix3d const & m) const    // Triangle vertices.
+{
     if (!intersects(SphericalBox(m.col(0), m.col(1), m.col(2)))) {
         return;
     } else if (level == 0) {
