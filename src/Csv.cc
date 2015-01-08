@@ -298,13 +298,13 @@ void Dialect::defineOptions(po::options_description & opts,
          po::value<char>()->default_value('"'),
          "CSV field quoting character.")
         ((prefix + "no-quote").c_str(),
-         po::value<std::string>()->default_value(""),
+         po::value<std::string>(),
          "Disable CSV field quoting.")
         ((prefix + "escape").c_str(),
          po::value<char>()->default_value('\\'),
          "CSV escape character.")
         ((prefix + "no-escape").c_str(),
-         po::value<std::string>()->default_value(""),
+         po::value<std::string>(),
          "Disable CSV character escaping.");
 }
 
@@ -500,7 +500,8 @@ char const * Editor::readRecord(char const * const begin,
                                              "the expected number of fields.");
                 }
                 f->inputValue = cur + 1;
-                if (cur + 1 < end && cur[1] == _inputDialect.getQuote()) {
+                if (cur + 1 < end && cur[1] != '\0' &&
+                    cur[1] == _inputDialect.getQuote()) {
                     // The next field is quoted.
                     quoted = true;
                     decode = true;
