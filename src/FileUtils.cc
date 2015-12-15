@@ -20,7 +20,7 @@
  * see <http://www.lsstcorp.org/LegalNotices/>.
  */
 
-#include "FileUtils.h"
+#include "lsst/partition/FileUtils.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>

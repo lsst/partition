@@ -20,7 +20,7 @@
  * see <http://www.lsstcorp.org/LegalNotices/>.
  */
 
-#include "CmdLineUtils.h"
+#include "lsst/partition/CmdLineUtils.h"
 
 #include <cstdlib>
 #include <algorithm>
@@ -29,8 +29,8 @@
 #include <set>
 #include <vector>
 
-#include "Constants.h"
-#include "FileUtils.h"
+#include "lsst/partition/Constants.h"
+#include "lsst/partition/FileUtils.h"
 
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;

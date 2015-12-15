@@ -20,7 +20,7 @@
  * see <http://www.lsstcorp.org/LegalNotices/>.
  */
 
-#include "InputLines.h"
+#include "lsst/partition/InputLines.h"
 
 #include <cstdlib>
 #include <stdexcept>
@@ -29,8 +29,8 @@
 #include "boost/static_assert.hpp"
 #include "boost/thread.hpp"
 
-#include "Constants.h"
-#include "FileUtils.h"
+#include "lsst/partition/Constants.h"
+#include "lsst/partition/FileUtils.h"
 
 namespace fs = boost::filesystem;
 namespace this_thread = boost::this_thread;

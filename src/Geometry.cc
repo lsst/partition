@@ -20,14 +20,14 @@
  * see <http://www.lsstcorp.org/LegalNotices/>.
  */
 
-#include "Geometry.h"
+#include "lsst/partition/Geometry.h"
 
 #include <cassert>
 #include <stdexcept>
 
 #include "boost/math/constants/constants.hpp"
 
-#include "Constants.h"
+#include "lsst/partition/Constants.h"
 
 namespace bmc = boost::math::constants;
 

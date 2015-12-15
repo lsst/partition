@@ -1,0 +1,8 @@
+import re
+from lsst.sconsUtils import state
+
+programs = []
+for node in Glob('#src/sph-*.cc'):
+    name = re.search(r'(?P<name>sph-.*).cc$', str(node)).group('name')
+    programs.extend(state.env.Program(name, node, LIBS=state.env.getLibs("main")))
+state.targets["bin"] = programs

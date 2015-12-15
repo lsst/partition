@@ -24,7 +24,7 @@
 #define BOOST_TEST_MODULE FileUtils
 #include "boost/test/unit_test.hpp"
 
-#include "FileUtils.h"
+#include "lsst/partition/FileUtils.h"
 #include "TempFile.h"
 
 using lsst::partition::BufferedAppender;

@@ -20,7 +20,7 @@
  * see <http://www.lsstcorp.org/LegalNotices/>.
  */
 
-#include "Csv.h"
+#include "lsst/partition/Csv.h"
 
 #include <ctype.h>
 #include <errno.h>

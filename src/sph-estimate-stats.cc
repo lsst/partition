@@ -33,11 +33,11 @@
 #include "boost/program_options.hpp"
 #include "boost/shared_ptr.hpp"
 
-#include "Chunker.h"
-#include "ChunkIndex.h"
-#include "CmdLineUtils.h"
-#include "Geometry.h"
-#include "HtmIndex.h"
+#include "lsst/partition/Chunker.h"
+#include "lsst/partition/ChunkIndex.h"
+#include "lsst/partition/CmdLineUtils.h"
+#include "lsst/partition/Geometry.h"
+#include "lsst/partition/HtmIndex.h"
 
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;

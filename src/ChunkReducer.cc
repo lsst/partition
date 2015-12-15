@@ -20,7 +20,7 @@
  * see <http://www.lsstcorp.org/LegalNotices/>.
  */
 
-#include "ChunkReducer.h"
+#include "lsst/partition/ChunkReducer.h"
 
 #include <cstdio>
 #include <stdexcept>
@@ -28,7 +28,7 @@
 
 #include "boost/make_shared.hpp"
 
-#include "Hash.h"
+#include "lsst/partition/Hash.h"
 
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;

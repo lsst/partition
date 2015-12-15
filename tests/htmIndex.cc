@@ -26,9 +26,9 @@
 #define BOOST_TEST_MODULE HtmIndex
 #include "boost/test/unit_test.hpp"
 
-#include "Constants.h"
-#include "FileUtils.h"
-#include "HtmIndex.h"
+#include "lsst/partition/Constants.h"
+#include "lsst/partition/FileUtils.h"
+#include "lsst/partition/HtmIndex.h"
 #include "TempFile.h"
 
 namespace fs = boost::filesystem;

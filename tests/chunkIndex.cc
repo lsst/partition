@@ -27,8 +27,8 @@
 #define BOOST_TEST_MODULE ChunkIndex
 #include "boost/test/unit_test.hpp"
 
-#include "ChunkIndex.h"
-#include "FileUtils.h"
+#include "lsst/partition/ChunkIndex.h"
+#include "lsst/partition/FileUtils.h"
 #include "TempFile.h"
 
 namespace fs = boost::filesystem;

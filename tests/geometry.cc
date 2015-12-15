@@ -29,8 +29,8 @@
 #include "boost/test/unit_test.hpp"
 #include "boost/math/constants/constants.hpp"
 
-#include "Constants.h"
-#include "Geometry.h"
+#include "lsst/partition/Constants.h"
+#include "lsst/partition/Geometry.h"
 
 using std::cos;
 using std::exception;
