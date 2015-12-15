@@ -20,7 +20,7 @@
  * see <http://www.lsstcorp.org/LegalNotices/>.
  */
 
-#include "HtmIndex.h"
+#include "lsst/partition/HtmIndex.h"
 
 #include <algorithm>
 #include <iomanip>
@@ -28,10 +28,10 @@
 
 #include "boost/scoped_array.hpp"
 
-#include "Constants.h"
-#include "FileUtils.h"
-#include "Geometry.h"
-#include "Hash.h"
+#include "lsst/partition/Constants.h"
+#include "lsst/partition/FileUtils.h"
+#include "lsst/partition/Geometry.h"
+#include "lsst/partition/Hash.h"
 
 namespace fs = boost::filesystem;
 

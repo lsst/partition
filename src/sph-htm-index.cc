@@ -35,13 +35,13 @@
 #include "boost/program_options.hpp"
 #include "boost/shared_ptr.hpp"
 
-#include "CmdLineUtils.h"
-#include "Csv.h"
-#include "FileUtils.h"
-#include "Geometry.h"
-#include "Hash.h"
-#include "HtmIndex.h"
-#include "MapReduce.h"
+#include "lsst/partition/CmdLineUtils.h"
+#include "lsst/partition/Csv.h"
+#include "lsst/partition/FileUtils.h"
+#include "lsst/partition/Geometry.h"
+#include "lsst/partition/Hash.h"
+#include "lsst/partition/HtmIndex.h"
+#include "lsst/partition/MapReduce.h"
 
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;

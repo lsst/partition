@@ -20,7 +20,7 @@
  * see <http://www.lsstcorp.org/LegalNotices/>.
  */
 
-#include "ChunkIndex.h"
+#include "lsst/partition/ChunkIndex.h"
 
 #include <algorithm>
 #include <cmath>
@@ -31,8 +31,8 @@
 
 #include "boost/scoped_array.hpp"
 
-#include "Constants.h"
-#include "FileUtils.h"
+#include "lsst/partition/Constants.h"
+#include "lsst/partition/FileUtils.h"
 
 namespace fs = boost::filesystem;
 

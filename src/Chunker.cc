@@ -20,11 +20,11 @@
  * see <http://www.lsstcorp.org/LegalNotices/>.
  */
 
-#include "Chunker.h"
+#include "lsst/partition/Chunker.h"
 
 #include <stdexcept>
 
-#include "Constants.h"
+#include "lsst/partition/Constants.h"
 
 namespace po = boost::program_options;
 

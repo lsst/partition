@@ -33,7 +33,7 @@
 #include "boost/filesystem/path.hpp"
 #include "boost/shared_ptr.hpp"
 
-#include "FileUtils.h"
+#include "lsst/partition/FileUtils.h"
 
 namespace {
     struct TempFile {

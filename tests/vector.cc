@@ -24,7 +24,7 @@
 #define BOOST_TEST_MODULE Vector
 #include "boost/test/unit_test.hpp"
 
-#include "Vector.h"
+#include "lsst/partition/Vector.h"
 
 
 using lsst::partition::Vector3d;

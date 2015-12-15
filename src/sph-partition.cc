@@ -34,10 +34,10 @@
 #include "boost/program_options.hpp"
 #include "boost/shared_ptr.hpp"
 
-#include "Chunker.h"
-#include "ChunkReducer.h"
-#include "CmdLineUtils.h"
-#include "Csv.h"
+#include "lsst/partition/Chunker.h"
+#include "lsst/partition/ChunkReducer.h"
+#include "lsst/partition/CmdLineUtils.h"
+#include "lsst/partition/Csv.h"
 
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;

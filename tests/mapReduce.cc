@@ -27,9 +27,9 @@
 #define BOOST_TEST_MODULE MapReduce
 #include "boost/test/unit_test.hpp"
 
-#include "Csv.h"
-#include "FileUtils.h"
-#include "MapReduce.h"
+#include "lsst/partition/Csv.h"
+#include "lsst/partition/FileUtils.h"
+#include "lsst/partition/MapReduce.h"
 #include "TempFile.h"
 
 namespace fs = boost::filesystem;

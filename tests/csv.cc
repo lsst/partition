@@ -27,7 +27,7 @@
 #define BOOST_TEST_MODULE Csv
 #include "boost/test/unit_test.hpp"
 
-#include "Csv.h"
+#include "lsst/partition/Csv.h"
 
 
 using std::runtime_error;
