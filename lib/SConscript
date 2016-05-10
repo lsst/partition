@@ -1,2 +1,2 @@
 from lsst.sconsUtils import scripts
-scripts.BasicSConscript.lib(src=Glob('#src/*.cc', exclude=['#src/sph-*.cc']))
+scripts.BasicSConscript.lib(src=Glob('#src/*.cc', exclude=['*/sph-*.cc']))
