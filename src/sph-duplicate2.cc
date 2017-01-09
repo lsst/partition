@@ -531,6 +531,11 @@ namespace {
     ObjectIdTransformMap objIdTransformInput,
                          objIdTransformDuplicate;
 
+    // Objects which were found out-of-the partition box. THese objects
+    // will not be duplicated or recorded into the output streams.
+
+    std::set<uint64_t> objIdOutOfBox;
+
     size_t duplicateObjectRow (std::string              & line,
                                part::SphericalBox const & box,
                                std::ofstream            & os) {
@@ -573,6 +578,14 @@ namespace {
 
         if (opt.whereObjectId && (opt.whereObjectId != deepSourceId)) return 0;
 
+        // Skip the object if it doesn't fall into the partition. Report
+        // it in the map.
+
+        if (!box.contains(ra, decl)) {
+            objIdOutOfBox.insert(deepSourceId);
+            return 0;
+        }
+        
         // Compute the new Object ID for the input row if requested
         
         const uint64_t newInputDeepSourceId = opt.forceNewKeys ? pkGenObject.next(deepSourceId, RaDecl {ra, decl}) : deepSourceId;
@@ -695,6 +708,11 @@ namespace {
         // the relevant ID doesn't match the filter.
 
         if (opt.whereObjectId && (opt.whereObjectId != objectId)) return 0;
+
+        // Skip this source if its object was found outside
+        // the partition's box.
+        
+        if (objIdOutOfBox.count(objectId)) return 0;
 
         // Compute the new Source ID for the input row if requested
         
@@ -831,6 +849,12 @@ namespace {
 
         if (opt.whereObjectId && (opt.whereObjectId != deepSourceId)) return 0;
 
+        // Skip this source if its object was found outside
+        // the partition's box.
+        
+        if (objIdOutOfBox.count(deepSourceId)) return 0;
+
+
         ObjectIdTransformMap::const_iterator const itr = objIdTransformDuplicate.find(deepSourceId);
         if (itr == objIdTransformDuplicate.end())
             throw new std::out_of_range("no replacememnt found for deepSourceId: "+std::to_string(deepSourceId));
@@ -904,7 +928,7 @@ namespace {
         const std::pair<size_t, size_t> objectRows = duplicateObject(box);
         if (opt.verbose) std::cout
                 << "\n"
-                << "    total of " << objectRows.first << " Object rows processed, " << objectRows.second << " recorded\n";
+                << "    total of " << objectRows.first << " Object rows processed, " << objectRows.second << " recorded, " << objIdOutOfBox.size() << " ignored\n";
 
         const std::pair<size_t, size_t> sourceRows = duplicateSource(box);
         if (opt.verbose) std::cout
