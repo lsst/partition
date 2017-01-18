@@ -373,15 +373,16 @@ namespace {
         uint32_t _nextLowerId (const uint32_t htmId) {
     
             HtmIdMap::iterator itr = _maxId.find(htmId);
+            uint32_t seriesId = 0UL;
             if (itr == _maxId.end()) {
-                _maxId[htmId] = 0UL;
-                return 0UL;
+                _maxId[htmId] = seriesId;
+            } else {
+                seriesId = ++(itr->second);
+                if (seriesId >= 0x3FFFF)
+                    throw new std::out_of_range(
+                        "maximum allowed limit of 256k has been reached for HTM ID: "+std::to_string(htmId)+
+                        ". Increase the HTM ID level of the Primary Key generator");
             }
-            const uint32_t seriesId = ++(itr->second);
-            if (seriesId >= 0x3FFFF)
-                throw new std::out_of_range(
-                    "maximum allowed limit of 256k has been reached for HTM ID: "+std::to_string(htmId)+
-                    ". Increase the HTM ID level of the Primary Key generator");
             return (seriesId & 0x3FFFF) | ((_opt.chunkId & 0x3FFF) << 18);
         }
 
