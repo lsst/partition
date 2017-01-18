@@ -359,6 +359,17 @@ namespace {
 
     private:
     
+        /**
+         * The lower ID is a 32 bit number which has the following structure:
+         *
+         * bits: 31-18: the last 14 bits of the current chunk number
+         * bits: 00-17: the last 18 bits of the local series witin the specified HTM ID
+         *
+         * ATTENTION: The algorithm allows chunk numbers in a range of: 0 -  16k
+         *            and local series identifiers in a range of:       0 .. 256k.
+         *            Any further increase in the density of objcts/sources will
+         *            require increasing the HTM ID level of the upper index.
+         */
         uint32_t _nextLowerId (const uint32_t htmId) {
     
             HtmIdMap::iterator itr = _maxId.find(htmId);
@@ -366,7 +377,12 @@ namespace {
                 _maxId[htmId] = 0UL;
                 return 0UL;
             }
-            return ++(itr->second);
+            const uint32_t seriesId = ++(itr->second);
+            if (seriesId >= 0x3FFFF)
+                throw new std::out_of_range(
+                    "maximum allowed limit of 256k has been reached for HTM ID: "+std::to_string(htmId)+
+                    ". Increase the HTM ID level of the Primary Key generator");
+            return (seriesId & 0x3FFFF) | ((_opt.chunkId & 0x3FFF) << 18);
         }
 
         PrimaryKeyGenerator();
