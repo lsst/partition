@@ -46,8 +46,11 @@ namespace part  = lsst::partition;
 
 namespace {
 
+    // An association between chunk identifiers and the corresponidng worker nodes
+    // where chunks are deployed.
     typedef std::map<int32_t, std::string> Chunk2WorkerMap;
 
+    // A parser for the chunk-to-worker map file.
     Chunk2WorkerMap parseChunk2WorkerMap(std::string const & filename) {
 
         Chunk2WorkerMap result;
@@ -66,6 +69,7 @@ namespace {
         return result;
     }
 
+    // Dump the header of the output table
     void dumpHeader() {
 
         std::cout
@@ -75,12 +79,15 @@ namespace {
             << "        |          Min |          Max |          Min |          Max |              |            \n"
             << " -------+--------------+--------------+--------------+--------------+--------------+------------\n";
     }
+
+    // Dump the footer of the output table
     void dumpFooter() {
 
         std::cout
             << "\n";
     }
 
+    // Dump a row of the output table
     void dumpRow(
         int32_t            const   chunkId,
         part::SphericalBox const & box,
@@ -129,11 +136,13 @@ namespace {
 
         std::cout << "\n";
     }
-}
 
-static char const * help =
-    "The tool will report a layout of partitions for the specified\n"
-    "configuration of stripes and overlaps.\n";
+    // The general description of the tool reported by the argument parser
+    // when runing the tool with option "--help".
+    char const * help =
+        "The tool will report a layout of partitions for the specified\n"
+        "configuration of stripes and overlaps.\n";
+}
 
 int main(int argc, char const * const * argv) {
 
@@ -141,7 +150,7 @@ int main(int argc, char const * const * argv) {
         po::options_description desc("\\_______________ Layout", 80);
         desc.add_options()
 
-        ("help,h",    help)
+        ("help,h",    ::help)
         ("verbose,v", "Produce verbose output.")
 
         ("part.num-stripes",     po::value<int>()   ->default_value(85),    "Chunk file name prefix.")

@@ -54,34 +54,7 @@ namespace {
     // Command line parser
     // ===================
  
-    struct CmdLineOptions {
-
-        bool verbose;
-        bool debug;
-    
-        uint32_t chunkId;
-        int      numStripes;
-        int      numSubStripesPerStripe;
-        double   overlap;
-
-        std::string coldefObjectName;
-        std::string coldefSourceName;
-        std::string coldefForcedSourceName;
-
-        std::string indir;
-        std::string outdir;
-
-        double      raShift;
-        int         htmSubdivisionLevel;
-        std::string htmMaps;
-        bool        storeInput;
-        bool        forceNewKeys;
-        bool        dryRun;
-
-        size_t   maxObjectRows;
-        size_t   maxSourceRows;
-        size_t   maxForcedSourceRows;    
-        uint64_t whereObjectId;
+    class CmdLineOptions {
     
     private:
 
@@ -97,9 +70,14 @@ namespace {
 
     public:
 
+        /// Trivial constructor
+        CmdLineOptions () {}
+
+        /// Destructor
+        ~CmdLineOptions () {}
+
+        /// Parse command line options and populate data members with results.
         /**
-         * Parse command line options and populate data members with results.
-         *
          * @return 'false' if the appplication was run in the 'hel' mode.
          */
         bool parse (int argc, char const * const * argv) {
@@ -197,11 +175,6 @@ namespace {
             po::store(
                 po::command_line_parser(argc, argv).options(desc).positional(chunk_descr).run(),
                 vm);
-            /*
-            po::store(
-                po::parse_command_line(argc, argv, desc),
-                vm);
-            */
             po::notify(vm);
     
             debug   = vm.count("debug")   > 0;
@@ -247,22 +220,63 @@ namespace {
         
             return true;
         }
+
+    private:
+
+        /// Copy constructor (not allowed)
+        CmdLineOptions (CmdLineOptions const &);
+
+        /// Assignment operator (ot allowed)
+        CmdLineOptions & operator=(CmdLineOptions const &);
+
+    public:
+
+        bool verbose;
+        bool debug;
+    
+        uint32_t chunkId;
+        int      numStripes;
+        int      numSubStripesPerStripe;
+        double   overlap;
+
+        std::string coldefObjectName;
+        std::string coldefSourceName;
+        std::string coldefForcedSourceName;
+
+        std::string indir;
+        std::string outdir;
+
+        double      raShift;
+        int         htmSubdivisionLevel;
+        std::string htmMaps;
+        bool        storeInput;
+        bool        forceNewKeys;
+        bool        dryRun;
+
+        size_t   maxObjectRows;
+        size_t   maxSourceRows;
+        size_t   maxForcedSourceRows;    
+        uint64_t whereObjectId;
     };
+    
+    /// The parser instance
     CmdLineOptions opt;
 
-    // HtmId generator for level 20
-
+    /// HtmId generator for level 20
     sphgeom::HtmPixelization htmIdGen20 {20};
-
-    // Transform RA/DECL: shift and wrap (if needed) over the maximum edge
-    // in each dimension.
     
+    /// Packaged sperical coordinate
     struct RaDecl {
         double ra;
         double decl;
     };
 
-    inline
+    /// Transform RA/DECL
+    /**
+     * Shift and wrap (if needed) over the maximum ed in each dimension.
+     *
+     * @return the translated coordinates
+     */
     RaDecl transformRaDecl (double ra,
                             double decl,
                             part::SphericalBox const & box) {
@@ -275,23 +289,26 @@ namespace {
         return coord;
     }
 
-    // ==========================================================
-    // The maps for the bucket sort of the primary identifiers of
-    // the Object and Source table rows.
-    // ==========================================================
-
+    /// The generator class for issuing series of unique 64-bit identifiers
     class PrimaryKeyGenerator {
 
-    public:
+    private:
 
+        /// The HTM ID map
         typedef std::map<uint32_t, uint32_t> HtmIdMap;
+
+    public:
     
+        /// Construct the generator for the specified table
         PrimaryKeyGenerator (CmdLineOptions const & opt,
                              std::string    const & table) :
             _opt   (opt),
             _table (table)
         {}
     
+        ~PrimaryKeyGenerator () {}
+
+        /// Load the keys (if required by the commad line configuration) from a file
         void load () {
     
             std::string const filename = _opt.htmMaps + "/" + std::to_string(_opt.chunkId) + "." + _table;
@@ -313,6 +330,7 @@ namespace {
             }
         }
 
+        /// Allocate and return the next key in a series
         uint64_t next (const uint64_t   oldId,
                        RaDecl const   & coord) {
 
@@ -359,6 +377,7 @@ namespace {
 
     private:
     
+        /// Allocate and return the next lower (32-bit) fraction of the key
         /**
          * The lower ID is a 32 bit number which has the following structure:
          *
@@ -386,10 +405,13 @@ namespace {
             return (seriesId & 0x3FFFF) | ((_opt.chunkId & 0x3FFF) << 18);
         }
 
+        /// Default constructor (is disabled)
         PrimaryKeyGenerator();
+
+        /// Assignment operator (is disabled)
         PrimaryKeyGenerator& operator= (PrimaryKeyGenerator const & lhs);
 
-    protected:
+    private:
 
         CmdLineOptions const & _opt;
         std::string            _table;
@@ -397,24 +419,31 @@ namespace {
         HtmIdMap _maxId;
     };
 
+    /// Generator instance for Objects
     PrimaryKeyGenerator pkGenObject {opt, "objects"};
+
+    /// Generator instance for Sources
     PrimaryKeyGenerator pkGenSource {opt, "sources"};
     
-    void initPkGenerators () {
-        pkGenObject.load();
-        pkGenSource.load();
-    }    
-
-    // ===============================================================
-    // Parser and resulting data structures for the column definitions
-    // of three tables.
-    // ===============================================================
-
-    struct ColDef {
-
-        std::vector<std::string> columns;
-        size_t maxLen {0};
     
+    
+    
+    
+    
+    /// The base class for the column definition parsers
+    /**
+     * Each subclasses of this class has two purposes:
+     * - serving as a repository of columns (in the order they're defined by the schema)
+     * - providing an zer-based index for locations of important columns in a rows
+     */
+    class ColDef {
+
+    public:
+
+        /// Destructor
+        virtual ~ColDef () {}
+
+        /// Load column definitions from a file
         void load (std::string const & filename) {
  
             std::ifstream infile {filename, std::ifstream::in};
@@ -432,21 +461,47 @@ namespace {
 
     protected:
 
+        /// Default constructor
+        ColDef () {}
+
+        /// Evaluate the column
         virtual void _evaluateColumn (std::string const & name, int colnum) = 0;
 
+        /// Validator for the definitions
+        /**
+         * @return 'true' if all expected columns were found in a definition files.
+         */
         virtual bool _isValid () const = 0;
+
+    private:
+
+        /// Copy constructor (is disabled)
+        ColDef (ColDef const &);
+
+        /// Assignment operator (is disabled)
+        ColDef& operator= (ColDef const & lhs);
+
+    public:
+
+        std::vector<std::string> columns;
+        size_t maxLen {0};
     };
 
-    struct ColDefObject : public ColDef {
+    
+    /// Column definitions for the Object table
+    class ColDefObject : public ColDef {
 
-        int idxDeepSourceId {-1},
-            idxRa           {-1},
-            idxDecl         {-1},
-            idxChunkId      {-1},
-            idxSubChunkId   {-1};
+    public:
+
+        /// Default constructor
+        ColDefObject () : ColDef () {}
+
+        /// Destructor
+        virtual ~ColDefObject () {}
 
     protected:
     
+        /// Evaluate the column
         virtual void _evaluateColumn (std::string const & name, int colnum) {
             if      ("deepSourceId" == name) { idxDeepSourceId = colnum; }
             else if ("ra"           == name) { idxRa           = colnum; }
@@ -454,7 +509,8 @@ namespace {
             else if ("chunkId"      == name) { idxChunkId      = colnum; }
             else if ("subChunkId"   == name) { idxSubChunkId   = colnum; }
         }
-        
+
+        /// Validator for the definitions
         virtual bool _isValid () const {
             return idxDeepSourceId *
                    idxRa *
@@ -462,22 +518,41 @@ namespace {
                    idxChunkId *
                    idxSubChunkId >= 0;
         }
+    private:
+
+        /// Copy constructor (is disabled)
+        ColDefObject (ColDefObject const &);
+
+        /// Assignment operator (is disabled)
+        ColDefObject& operator= (ColDefObject const & lhs);
+
+    public:
+
+        int idxDeepSourceId {-1},
+            idxRa           {-1},
+            idxDecl         {-1},
+            idxChunkId      {-1},
+            idxSubChunkId   {-1};
     };
+    
+    /// Object table's column definitions instance
     ColDefObject coldefObject;
 
-    struct ColDefSource : public ColDef {
 
-        int idxId  {-1},
-            idxCoordRa   {-1},
-            idxCoordDecl {-1},
-            idxCoordHtmId20 {-1},
-            idxParent   {-1},
-            idxObjectId {-1},
-            idxClusterCoordRa   {-1},
-            idxClusterCoordDecl {-1};
+    /// Column definitions for the Source table
+    class ColDefSource : public ColDef {
+
+    public:
+
+        /// Default constructor
+        ColDefSource () : ColDef () {}
+
+        /// Destructor
+        virtual ~ColDefSource () {}
 
     protected:
 
+        /// Evaluate the column
         virtual void _evaluateColumn (std::string const & name, int colnum) {
             if      ("id"            == name) { idxId           = colnum; }
             else if ("coord_ra"      == name) { idxCoordRa      = colnum; }
@@ -489,6 +564,7 @@ namespace {
             else if ("cluster_coord_decl" == name) { idxClusterCoordDecl = colnum; }
         }
         
+        /// Validator for the definitions
         virtual bool _isValid () const {
             return idxId *
                    idxCoordRa *
@@ -499,35 +575,76 @@ namespace {
                    idxClusterCoordRa *
                    idxClusterCoordDecl >= 0;
         }
+
+    private:
+
+        /// Copy constructor (is disabled)
+        ColDefSource (ColDefSource const &);
+
+        /// Assignment operator (is disabled)
+        ColDefSource& operator= (ColDefSource const & lhs);
+
+    public:
+
+        int idxId  {-1},
+            idxCoordRa   {-1},
+            idxCoordDecl {-1},
+            idxCoordHtmId20 {-1},
+            idxParent   {-1},
+            idxObjectId {-1},
+            idxClusterCoordRa   {-1},
+            idxClusterCoordDecl {-1};
     };
+
+    /// Source table's column definitions instance
     ColDefSource coldefSource;
 
-    struct ColDefForcedSource : public ColDef {
+    class ColDefForcedSource : public ColDef {
 
-        int idxDeepSourceId {-1},
-            idxChunkId      {-1},
-            idxSubChunkId   {-1};
+    public:
+
+        /// Default constructor
+        ColDefForcedSource () : ColDef () {}
+
+        /// Destructor
+        virtual ~ColDefForcedSource () {}
 
     protected:
 
+        /// Evaluate the column
         virtual void _evaluateColumn (std::string const & name, int colnum) {
             if      ("deepSourceId" == name) { idxDeepSourceId = colnum; }
             else if ("chunkId"      == name) { idxChunkId      = colnum; }
             else if ("subChunkId"   == name) { idxSubChunkId   = colnum; }
         }
         
+        /// Validator for the definitions
         virtual bool _isValid () const {
             return idxDeepSourceId *
                    idxChunkId *
                    idxSubChunkId >= 0;
         }
+
+    private:
+
+        /// Copy constructor (is disabled)
+        ColDefForcedSource (ColDefForcedSource const &);
+
+        /// Assignment operator (is disabled)
+        ColDefForcedSource& operator= (ColDefForcedSource const & lhs);
+
+    public:
+
+        int idxDeepSourceId {-1},
+            idxChunkId      {-1},
+            idxSubChunkId   {-1};
     };
+
+    /// ForcedSource table's column definitions instance
     ColDefForcedSource coldefForcedSource;
 
-    // =================================================================
-    // The duplicator of the Object rows and the relevant data structure
-    // =================================================================
 
+    /// Write a row into a stream
     void writeRow (std::vector<std::string> const & tokens, std::ofstream & os) {
 
         if (opt.dryRun) return;
@@ -539,20 +656,19 @@ namespace {
         os << "\n";
     }
 
-    // Two transformation map sbetween the old (keys) and new (values)
-    // identifiers. One map is for the original (input) objects, and
-    // the other one - for the duplicate ones.
-
+    /// The transformation map sbetween the old and new primary keys of object tables
     typedef std::map<uint64_t,uint64_t> ObjectIdTransformMap;
 
+    /// Transformation table instances. One map is for the original (input) objects,
+    /// and the other one - for the duplicate ones.
     ObjectIdTransformMap objIdTransformInput,
                          objIdTransformDuplicate;
 
-    // Objects which were found out-of-the partition box. THese objects
-    // will not be duplicated or recorded into the output streams.
-
+    /// Objects which were found out-of-the partition box. THese objects
+    /// will not be duplicated or recorded into the output streams.
     std::set<uint64_t> objIdOutOfBox;
 
+    /// Duplicate the next row of the chunk's Object table
     size_t duplicateObjectRow (std::string              & line,
                                part::SphericalBox const & box,
                                std::ofstream            & os) {
@@ -649,6 +765,7 @@ namespace {
         return opt.storeInput ? 2 : 1;
     }
 
+    /// Duplicate all rows of the chunk's Object table
     std::pair<size_t, size_t> duplicateObject (part::SphericalBox const & box) {
 
         std::string const inFileName = opt.indir  + "/Object_" + std::to_string (opt.chunkId) + ".txt",
@@ -672,10 +789,7 @@ namespace {
         return std::make_pair (numProcessed, numRecorded);
     }
 
-    // =================================================================
-    // The duplicator of the Source rows and the relevant data structure
-    // =================================================================
-
+    /// Duplicate the next row of the chunk's Source table
     size_t duplicateSourceRow (std::string              & line,
                                part::SphericalBox const & box,
                                std::ofstream            & os) {
@@ -804,6 +918,7 @@ namespace {
         return opt.storeInput ? 2 : 1;
     }
 
+    /// Duplicate all rows of the chunk's Source table
     std::pair<size_t, size_t> duplicateSource (part::SphericalBox const & box) {
 
         std::string const inFileName = opt.indir  + "/Source_" + std::to_string (opt.chunkId) + ".txt",
@@ -824,10 +939,7 @@ namespace {
         return std::make_pair (numProcessed, numRecorded);
     }
 
-    // =======================================================================
-    // The duplicator of the ForcedSource rows and the relevant data structure
-    // =======================================================================
-
+    /// Duplicate the next row of the chunk's ForcedSource table
     size_t duplicateForcedSourceRow (std::string              & line,
                                      part::SphericalBox const & box,
                                      std::ofstream            & os) {
@@ -902,6 +1014,7 @@ namespace {
         return opt.storeInput ? 2 : 1;
     }
 
+    /// Duplicate all rows of the chunk's ForcedSource table
     std::pair<size_t, size_t> duplicateForcedSource (part::SphericalBox const & box) {
 
         std::string const inFileName = opt.indir  + "/ForcedSource_" + std::to_string (opt.chunkId) + ".txt",
@@ -922,13 +1035,14 @@ namespace {
         return std::make_pair (numProcessed, numRecorded);
     }
 
-    // =========================
-    // Process the current chunk
-    // =========================
-
+    /// Process the current chunk
     void duplicate () {
 
-        if (!opt.htmSubdivisionLevel) initPkGenerators();
+        if (!opt.htmSubdivisionLevel) {
+            // Preload keys into the primary keys generators of both tables
+            pkGenObject.load();
+            pkGenSource.load(); 
+        }
 
         part::Chunker              chunker {opt.overlap, opt.numStripes, opt.numSubStripesPerStripe};
         part::SphericalBox const & box     {chunker.getChunkBounds(opt.chunkId)};
@@ -966,13 +1080,11 @@ int main (int argc, char const * const * argv) {
         if (!::opt.parse(argc, argv)) return EXIT_FAILURE;
 
         // Load table schemas (a part of it) before duplicating chunks
-
         ::coldefObject      .load(::opt.coldefObjectName);
         ::coldefSource      .load(::opt.coldefSourceName);
         ::coldefForcedSource.load(::opt.coldefForcedSourceName);
 
         // Process the chunk(s)
-
         ::duplicate();
 
     } catch (std::exception const & ex) {
