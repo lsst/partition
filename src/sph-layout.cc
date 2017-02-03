@@ -1,6 +1,6 @@
 /*
  * LSST Data Management System
- * Copyright 2013 LSST Corporation.
+ * Copyright 2017 LSST Corporation.
  *
  * This product includes software developed by the
  * LSST Project (http://www.lsst.org/).
@@ -24,21 +24,20 @@
 /// \brief Print the layout of partitions for the specified
 ///        configuration.
 
-#include <iostream>
+#include <cmath>
 #include <fstream>
+#include <iostream>
+#include <map>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
-#include <map>
-#include <cmath>
 
 #include "boost/program_options.hpp"
 #include "boost/shared_ptr.hpp"
 
 #include "lsst/partition/Chunker.h"
-
 #include "lsst/partition/Geometry.h"
 
 namespace po    = boost::program_options;
@@ -55,14 +54,16 @@ namespace {
 
         Chunk2WorkerMap result;
 
-        std::ifstream infile {filename,  std::ifstream::in};
+        std::ifstream infile (filename,  std::ifstream::in);
         for (std::string line; std::getline(infile, line);) {
 
             std::stringstream is(line);
             int32_t chunk;
             std::string node;
             is >> chunk;
+            if (is.fail()) throw std::runtime_error("wrong format of file: '" + filename + "'");
             is >> node;
+            if (is.fail()) throw std::runtime_error("wrong format of file: '" + filename + "'");
             
             result[chunk] = node;
         }
@@ -93,7 +94,7 @@ namespace {
         part::SphericalBox const & box,
         Chunk2WorkerMap    const & chunk2worker) {
 
-        const double area = box.area();
+        double const area = box.area();
         if (!(std::isnormal(area) && area > 1e-7)) return;
 
 
@@ -129,7 +130,7 @@ namespace {
         std::cout << " | ";
 
         Chunk2WorkerMap::const_iterator const & itr = chunk2worker.find(chunkId);
-        const std::string worker{itr == chunk2worker.end() ? "" : itr->second};
+        std::string const worker(itr == chunk2worker.end() ? "" : itr->second);
 
         std::cout.width(10);
         std::cout << worker;
@@ -153,13 +154,13 @@ int main(int argc, char const * const * argv) {
         ("help,h",    ::help)
         ("verbose,v", "Produce verbose output.")
 
-        ("part.num-stripes",     po::value<int>()   ->default_value(85),    "Chunk file name prefix.")
-        ("part.num-sub-stripes", po::value<int>()   ->default_value(12),    "The number of sub-stripes to divide each stripe into.")
+        ("part.num-stripes",     po::value<int>()->default_value(85),       "Chunk file name prefix.")
+        ("part.num-sub-stripes", po::value<int>()->default_value(12),       "The number of sub-stripes to divide each stripe into.")
         ("part.overlap",         po::value<double>()->default_value(0.01),  "Chunk/sub-chunk overlap radius (deg).")
-
-        ("chunk2worker", po::value<std::string>(), "Chunk-to-worker map.")
-
-        ("chunk", po::value<std::vector<int32_t>>(), "Chunk identifier.");
+        ("chunk2worker",         po::value<std::string>(),                  "Chunk-to-worker map.")
+        ("chunk",                po::value<std::vector<int32_t>>(),         "Chunk identifier.")
+        ("min-chunk",            po::value<int32_t>()->default_value(0),    "Minimal chunk number in a range if no specific chunks wer epresented")
+        ("max-chunk",            po::value<int32_t>()->default_value(0),    "Maximum chunk number in a range if no specific chunks wer epresented");
 
         po::positional_options_description pos_descr;
         pos_descr.add("chunk", -1);
@@ -170,11 +171,11 @@ int main(int argc, char const * const * argv) {
             vm);
         po::notify(vm);
 
-        const bool verbose = vm.count("verbose") > 0;
+        bool const verbose = vm.count("verbose") > 0;
         
-        const int    numStripes             = vm["part.num-stripes"]    .as<int>();
-        const int    numSubStripesPerStripe = vm["part.num-sub-stripes"].as<int>();
-        const double overlap                = vm["part.overlap"]        .as<double>();
+        int    const numStripes             = vm["part.num-stripes"]    .as<int>();
+        int    const numSubStripesPerStripe = vm["part.num-sub-stripes"].as<int>();
+        double const overlap                = vm["part.overlap"]        .as<double>();
 
         if (verbose) {
             std::cout
@@ -186,14 +187,25 @@ int main(int argc, char const * const * argv) {
                 << "  part.overlap:         " << overlap << "\n"
                 << std::endl;
         }
+        part::Chunker chunker (overlap, numStripes, numSubStripesPerStripe);
 
+        // The list of chunks to be tried and (if for those found valid)
+        // displayed by the application.
         std::vector<int32_t> chunks =
             vm.count("chunk") ? vm["chunk"].as<std::vector<int32_t>>() : std::vector<int32_t>();
 
-        if (chunks.empty())
-            for (int32_t chunkId = 0 ; chunkId < 20000; ++chunkId)
+        // Assume a range of chunks if no specific chunks were found in
+        // a list of positional parameters.
+        if (chunks.empty()) {
+            
+            int32_t const minChunkId = vm["min-chunk"].as<int32_t>();
+            int32_t const maxChunkId = vm["max-chunk"].as<int32_t>();
+            if (minChunkId > maxChunkId)
+                throw std::runtime_error("<max-chunk> must be greater or equal than <min-chunk>");
+
+            for (int32_t chunkId = minChunkId ; chunkId <= maxChunkId; ++chunkId)
                 chunks.push_back(chunkId);
-                
+        }
         ::Chunk2WorkerMap chunk2worker;
         if (vm.count("chunk2worker")) chunk2worker =
             ::parseChunk2WorkerMap(vm["chunk2worker"].as<std::string>());
@@ -201,8 +213,6 @@ int main(int argc, char const * const * argv) {
         if (verbose) {
             std::cout << "  chunk2worker size: " << chunk2worker.size() << "\n";
         }
-
-        part::Chunker chunker{overlap, numStripes, numSubStripesPerStripe};
 
         ::dumpHeader();
 

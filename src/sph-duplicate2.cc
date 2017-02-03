@@ -1,6 +1,6 @@
 /*
  * LSST Data Management System
- * Copyright 2013 LSST Corporation.
+ * Copyright 2017 LSST Corporation.
  *
  * This product includes software developed by the
  * LSST Project (http://www.lsst.org/).
@@ -24,22 +24,22 @@
 /// \brief Duplicate Object, Source and ForcedSource entries in an existing
 ///        partition.
 
-#include <iostream>
+#include <cmath>
 #include <fstream>
+#include <iostream>
+#include <map>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
-#include <map>
-#include <cmath>
 
-#include "boost/program_options.hpp"
 #include "boost/lexical_cast.hpp"
+#include "boost/program_options.hpp"
 
 #include "lsst/sphgeom/LonLat.h"
-#include "lsst/sphgeom/UnitVector3d.h"
 #include "lsst/sphgeom/HtmPixelization.h"
+#include "lsst/sphgeom/UnitVector3d.h"
 
 #include "lsst/partition/Chunker.h"
 #include "lsst/partition/Geometry.h"
@@ -106,29 +106,22 @@ namespace {
 
             // Spatial configuration of the input
 
-            ("chunk,c", po::value<uint32_t>(),
-                        "Chunk identifier. The identifier may also be passed into the application "
-                        "as a positional parameter.")
-
-            ("part.num-stripes,s",     po::value<int>()->default_value(85),
-                                       "The number of stripes.")
-
-            ("part.num-sub-stripes,b", po::value<int>()->default_value(12),
-                                       "The number of sub-stripes to divide each stripe into.")
-
-            ("part.overlap,p",         po::value<double>()->default_value(0.01),
-                                       "Chunk/sub-chunk overlap radius (deg).")
+            ("chunk,c",                 po::value<uint32_t>(),                      "Chunk identifier. The identifier may also be passed into the application "
+                                                                                    "as a positional parameter.")
+            ("part.num-stripes,s",      po::value<int>()->default_value(85),        "The number of stripes.")
+            ("part.num-sub-stripes,b",  po::value<int>()->default_value(12),        "The number of sub-stripes to divide each stripe into.")
+            ("part.overlap,p",          po::value<double>()->default_value(0.01),   "Chunk/sub-chunk overlap radius (deg).")
     
             // Table schema definitions (needed to parse the input TSV files)
 
-            ("coldef.object,O",        po::value<std::string>(), "Input file with the names of all columns of the Object table.")
-            ("coldef.source,S",        po::value<std::string>(), "Input file with the names of all columns of the Source table.")
-            ("coldef.forcedsource,F",  po::value<std::string>(), "Input file with the names of all columns of the ForcedSource table.")
+            ("coldef.object,O",         po::value<std::string>(),   "Input file with the names of all columns of the Object table.")
+            ("coldef.source,S",         po::value<std::string>(),   "Input file with the names of all columns of the Source table.")
+            ("coldef.forcedsource,F",   po::value<std::string>(),   "Input file with the names of all columns of the ForcedSource table.")
     
             // Data folders
 
-            ("indir,i",  po::value<std::string>(), "Input folder with TSV files")
-            ("outdir,o", po::value<std::string>(), "Output folder for modified TSV files.")
+            ("indir,i",                po::value<std::string>(), "Input folder with TSV files")
+            ("outdir,o",               po::value<std::string>(), "Output folder for modified TSV files.")
 
             // Parameters affecting the transformation process for the RA/DECL
             // and primary keys.
@@ -263,7 +256,7 @@ namespace {
     CmdLineOptions opt;
 
     /// HtmId generator for level 20
-    sphgeom::HtmPixelization htmIdGen20 {20};
+    sphgeom::HtmPixelization htmIdGen20 (20);
     
     /// Packaged sperical coordinate
     struct RaDecl {
@@ -283,7 +276,7 @@ namespace {
         RaDecl coord {ra, decl};
 
         coord.ra += opt.raShift;
-        const double raMax4wrap = box.getLonMax() + (box.wraps() ? 360. : 0.);
+        double const raMax4wrap = box.getLonMax() + (box.wraps() ? 360. : 0.);
         if (coord.ra >= raMax4wrap) coord.ra = box.getLonMin() + (coord.ra - raMax4wrap);
 
         return coord;
@@ -315,7 +308,7 @@ namespace {
 
             _maxId.clear();
     
-            std::ifstream infile {filename, std::ifstream::in};
+            std::ifstream infile (filename, std::ifstream::in);
             for (std::string line; std::getline(infile, line);) {
     
                 std::stringstream is(line);
@@ -331,8 +324,8 @@ namespace {
         }
 
         /// Allocate and return the next key in a series
-        uint64_t next (const uint64_t   oldId,
-                       RaDecl const   & coord) {
+        uint64_t next (uint64_t const    oldId,
+                       RaDecl   const  & coord) {
 
             // Compute new ID for the shifted RA/DECL using the requested
             // algorithm.
@@ -343,7 +336,7 @@ namespace {
     
                 // Increase the HTM level for the hight 32-bit part of the ID
 
-                const uint32_t newHtmId = part::htmId(part::cartesian(coord.ra, coord.decl), _opt.htmSubdivisionLevel);
+                uint32_t const newHtmId = part::htmId(part::cartesian(coord.ra, coord.decl), _opt.htmSubdivisionLevel);
 
                 newId = newHtmId;
                 newId <<= 32;
@@ -366,7 +359,7 @@ namespace {
                 // Use the Htm8 buckets as the high 32-bit and use the next available
                 // 32-bit lower sub-ID in a loaded sequence for thm8 bucket.
     
-                const uint32_t newHtmId = part::htmId(part::cartesian(coord.ra, coord.decl), 8);
+                uint32_t const newHtmId = part::htmId(part::cartesian(coord.ra, coord.decl), 8);
                 
                 newId = newHtmId;
                 newId <<= 32;
@@ -389,7 +382,7 @@ namespace {
          *            Any further increase in the density of objcts/sources will
          *            require increasing the HTM ID level of the upper index.
          */
-        uint32_t _nextLowerId (const uint32_t htmId) {
+        uint32_t _nextLowerId (uint32_t const htmId) {
     
             HtmIdMap::iterator itr = _maxId.find(htmId);
             uint32_t seriesId = 0UL;
@@ -420,10 +413,10 @@ namespace {
     };
 
     /// Generator instance for Objects
-    PrimaryKeyGenerator pkGenObject {opt, "objects"};
+    PrimaryKeyGenerator pkGenObject (opt, "objects");
 
     /// Generator instance for Sources
-    PrimaryKeyGenerator pkGenSource {opt, "sources"};
+    PrimaryKeyGenerator pkGenSource (opt, "sources");
     
     
     
@@ -446,7 +439,7 @@ namespace {
         /// Load column definitions from a file
         void load (std::string const & filename) {
  
-            std::ifstream infile {filename, std::ifstream::in};
+            std::ifstream infile (filename, std::ifstream::in);
             std::string name;
             for (int colnum = 0; std::getline(infile, name); colnum++) {
 
@@ -462,7 +455,7 @@ namespace {
     protected:
 
         /// Default constructor
-        ColDef () {}
+        ColDef () : maxLen(0) {}
 
         /// Evaluate the column
         virtual void _evaluateColumn (std::string const & name, int colnum) = 0;
@@ -484,7 +477,7 @@ namespace {
     public:
 
         std::vector<std::string> columns;
-        size_t maxLen {0};
+        size_t maxLen;
     };
 
     
@@ -494,7 +487,14 @@ namespace {
     public:
 
         /// Default constructor
-        ColDefObject () : ColDef () {}
+        ColDefObject () :
+            ColDef   (),
+            idxDeepSourceId (-1),
+            idxRa           (-1),
+            idxDecl         (-1),
+            idxChunkId      (-1),
+            idxSubChunkId   (-1)
+        {}
 
         /// Destructor
         virtual ~ColDefObject () {}
@@ -528,11 +528,11 @@ namespace {
 
     public:
 
-        int idxDeepSourceId {-1},
-            idxRa           {-1},
-            idxDecl         {-1},
-            idxChunkId      {-1},
-            idxSubChunkId   {-1};
+        int idxDeepSourceId;
+        int idxRa;
+        int idxDecl;
+        int idxChunkId;
+        int idxSubChunkId;
     };
     
     /// Object table's column definitions instance
@@ -545,7 +545,17 @@ namespace {
     public:
 
         /// Default constructor
-        ColDefSource () : ColDef () {}
+        ColDefSource () :
+            ColDef   (),
+            idxId               (-1),
+            idxCoordRa          (-1),
+            idxCoordDecl        (-1),
+            idxCoordHtmId20     (-1),
+            idxParent           (-1),
+            idxObjectId         (-1),
+            idxClusterCoordRa   (-1),
+            idxClusterCoordDecl (-1)
+        {}
 
         /// Destructor
         virtual ~ColDefSource () {}
@@ -586,14 +596,14 @@ namespace {
 
     public:
 
-        int idxId  {-1},
-            idxCoordRa   {-1},
-            idxCoordDecl {-1},
-            idxCoordHtmId20 {-1},
-            idxParent   {-1},
-            idxObjectId {-1},
-            idxClusterCoordRa   {-1},
-            idxClusterCoordDecl {-1};
+        int idxId;
+        int idxCoordRa;
+        int idxCoordDecl;
+        int idxCoordHtmId20;
+        int idxParent;
+        int idxObjectId;
+        int idxClusterCoordRa;
+        int idxClusterCoordDecl;
     };
 
     /// Source table's column definitions instance
@@ -604,7 +614,12 @@ namespace {
     public:
 
         /// Default constructor
-        ColDefForcedSource () : ColDef () {}
+        ColDefForcedSource () :
+            ColDef         (),
+            idxDeepSourceId (-1),
+            idxChunkId      (-1),
+            idxSubChunkId   (-1)
+        {}
 
         /// Destructor
         virtual ~ColDefForcedSource () {}
@@ -635,9 +650,9 @@ namespace {
 
     public:
 
-        int idxDeepSourceId {-1},
-            idxChunkId      {-1},
-            idxSubChunkId   {-1};
+        int idxDeepSourceId;
+        int idxChunkId;
+        int idxSubChunkId;
     };
 
     /// ForcedSource table's column definitions instance
@@ -694,12 +709,12 @@ namespace {
 
         // Extract values which need to be transformed
 
-        uint64_t deepSourceId {0};
-        double ra   {0.};
-        double decl {0.};
+        uint64_t deepSourceId (0);
+        double ra   (0.);
+        double decl (0.);
 
         int idx = 0;
-        for (const std::string token : tokens) {  
+        for (std::string const token : tokens) {  
             if      (coldefObject.idxDeepSourceId == idx) { deepSourceId = boost::lexical_cast<uint64_t>(token); }
             else if (coldefObject.idxRa           == idx) { ra           = boost::lexical_cast<double>  (token); }
             else if (coldefObject.idxDecl         == idx) { decl         = boost::lexical_cast<double>  (token); }
@@ -721,7 +736,7 @@ namespace {
         
         // Compute the new Object ID for the input row if requested
         
-        const uint64_t newInputDeepSourceId = opt.forceNewKeys ? pkGenObject.next(deepSourceId, RaDecl {ra, decl}) : deepSourceId;
+        uint64_t const newInputDeepSourceId = opt.forceNewKeys ? pkGenObject.next(deepSourceId, RaDecl {ra, decl}) : deepSourceId;
 
         objIdTransformInput[deepSourceId] = newInputDeepSourceId;
 
@@ -732,7 +747,7 @@ namespace {
         // Compute new Object ID for the shifted RA/DECL using an algorithm
         // requested when invoking the application.
 
-        const uint64_t newDeepSourceId = pkGenObject.next(deepSourceId, coord);
+        uint64_t const newDeepSourceId = pkGenObject.next(deepSourceId, coord);
 
         if (opt.debug) {
             std::cout
@@ -774,9 +789,9 @@ namespace {
         size_t numProcessed = 0,
                numRecorded  = 0;
 
-        std::ifstream  infile {  inFileName, std::ifstream::in };
-        std::ofstream outfile { outFileName, std::ofstream::out |
-                                             std::ofstream::trunc };
+        std::ifstream  infile (  inFileName, std::ifstream::in );
+        std::ofstream outfile ( outFileName, std::ofstream::out |
+                                             std::ofstream::trunc );
 
         objIdTransformInput    .clear();
         objIdTransformDuplicate.clear();
@@ -815,16 +830,16 @@ namespace {
         
         // Extract values which need to be transformed
 
-        uint64_t id {0ULL};
-        double   coord_ra   {0.};
-        double   coord_decl {0.};
-        uint64_t coord_htmId20 {0UL};
-        uint64_t objectId      {0ULL};
-        double   cluster_coord_ra   {0.};
-        double   cluster_coord_decl {0.};
+        uint64_t id (0ULL);
+        double   coord_ra   (0.);
+        double   coord_decl (0.);
+        uint64_t coord_htmId20 (0ULL);
+        uint64_t objectId      (0ULL);
+        double   cluster_coord_ra   (0.);
+        double   cluster_coord_decl (0.);
 
         int idx = 0;
-        for (const std::string token : tokens) {    
+        for (std::string const token : tokens) {    
             if      (coldefSource.idxId               == idx) { id                 = boost::lexical_cast<uint64_t>(token); }
             else if (coldefSource.idxCoordRa          == idx) { coord_ra           = boost::lexical_cast<double>  (token); }
             else if (coldefSource.idxCoordDecl        == idx) { coord_decl         = boost::lexical_cast<double>  (token); }
@@ -847,11 +862,11 @@ namespace {
 
         // Compute the new Source ID for the input row if requested
         
-        const uint64_t newInputId = opt.forceNewKeys ? pkGenSource.next(id, RaDecl {coord_ra, coord_decl}) : id;
+        uint64_t const newInputId = opt.forceNewKeys ? pkGenSource.next(id, RaDecl {coord_ra, coord_decl}) : id;
 
         // Recompute the HtmId (level=20) for the input source if requested
 
-        const uint64_t newInputCoord_htmId20 = opt.forceNewKeys ?
+        uint64_t const newInputCoord_htmId20 = opt.forceNewKeys ?
             htmIdGen20.index (
                 sphgeom::UnitVector3d (
                     sphgeom::LonLat::fromDegrees(coord_ra, coord_decl))) :
@@ -865,11 +880,11 @@ namespace {
         // Compute new Source ID for the shifted RA/DECL using an algorithm
         // requested when invoking the application.
 
-        const uint64_t newId = pkGenSource.next(id, coord);
+        uint64_t const newId = pkGenSource.next(id, coord);
 
         // Compute new HtmId (level=20) for the source
 
-        const uint64_t newCoord_htmId20 =
+        uint64_t const newCoord_htmId20 =
             htmIdGen20.index (
                 sphgeom::UnitVector3d (
                     sphgeom::LonLat::fromDegrees(coord.ra, coord.decl)));
@@ -877,7 +892,7 @@ namespace {
         ObjectIdTransformMap::const_iterator const itr = objIdTransformDuplicate.find(objectId);
         if (itr == objIdTransformDuplicate.end())
             throw new std::out_of_range("no replacememnt found for objectId: "+std::to_string(objectId));
-        const uint64_t newObjectId = itr->second;
+        uint64_t const newObjectId = itr->second;
 
         if (opt.debug) {
             std::cout
@@ -924,12 +939,12 @@ namespace {
         std::string const inFileName = opt.indir  + "/Source_" + std::to_string (opt.chunkId) + ".txt",
                          outFileName = opt.outdir + "/Source_" + std::to_string (opt.chunkId) + ".txt";
 
-        size_t numProcessed = 0,
-               numRecorded  = 0;
+        size_t numProcessed (0),
+               numRecorded  (0);
 
-        std::ifstream  infile {  inFileName, std::ifstream::in };
-        std::ofstream outfile { outFileName, std::ofstream::out |
-                                             std::ofstream::trunc };
+        std::ifstream  infile (  inFileName, std::ifstream::in );
+        std::ofstream outfile ( outFileName, std::ofstream::out |
+                                             std::ofstream::trunc );
 
         for (std::string line; std::getline(infile, line);) {
             numRecorded += duplicateSourceRow(line, box, outfile);
@@ -965,10 +980,10 @@ namespace {
         
         // Extract values which need to be transformed
 
-        uint64_t deepSourceId {0ULL};
+        uint64_t deepSourceId (0ULL);
 
         int idx = 0;
-        for (const std::string token : tokens) {
+        for (std::string const token : tokens) {
             if (coldefForcedSource.idxDeepSourceId == idx) { deepSourceId = boost::lexical_cast<uint64_t>(token); }
             ++idx;
         }
@@ -987,7 +1002,7 @@ namespace {
         ObjectIdTransformMap::const_iterator const itr = objIdTransformDuplicate.find(deepSourceId);
         if (itr == objIdTransformDuplicate.end())
             throw new std::out_of_range("no replacememnt found for deepSourceId: "+std::to_string(deepSourceId));
-        const uint64_t newDeepSourceId = itr->second;
+        uint64_t const newDeepSourceId = itr->second;
 
         if (opt.debug) {
             std::cout
@@ -1023,9 +1038,9 @@ namespace {
         size_t numProcessed = 0,
                numRecorded  = 0;
 
-        std::ifstream  infile {  inFileName, std::ifstream::in };
-        std::ofstream outfile { outFileName, std::ofstream::out |
-                                             std::ofstream::trunc };
+        std::ifstream  infile (  inFileName, std::ifstream::in );
+        std::ofstream outfile ( outFileName, std::ofstream::out |
+                                             std::ofstream::trunc );
 
         for (std::string line; std::getline(infile, line);) {
             numRecorded += duplicateForcedSourceRow(line, box, outfile);
@@ -1044,8 +1059,8 @@ namespace {
             pkGenSource.load(); 
         }
 
-        part::Chunker              chunker {opt.overlap, opt.numStripes, opt.numSubStripesPerStripe};
-        part::SphericalBox const & box     {chunker.getChunkBounds(opt.chunkId)};
+        part::Chunker              chunker (opt.overlap, opt.numStripes, opt.numSubStripesPerStripe);
+        part::SphericalBox const & box     (chunker.getChunkBounds(opt.chunkId));
 
         if (opt.verbose) std::cout
             << "\n"
@@ -1056,17 +1071,17 @@ namespace {
             << "    lat.min: " << box.getLatMin() << "\n"
             << "    lat.max: " << box.getLatMax() << "\n";
 
-        const std::pair<size_t, size_t> objectRows = duplicateObject(box);
+        std::pair<size_t, size_t> const objectRows = duplicateObject(box);
         if (opt.verbose) std::cout
                 << "\n"
                 << "    total of " << objectRows.first << " Object rows processed, " << objectRows.second << " recorded, " << objIdOutOfBox.size() << " ignored\n";
 
-        const std::pair<size_t, size_t> sourceRows = duplicateSource(box);
+        std::pair<size_t, size_t> const sourceRows = duplicateSource(box);
         if (opt.verbose) std::cout
                 << "\n"
                 << "    total of " << sourceRows.first << " Source rows processed, " << sourceRows.second << " recorded\n";
 
-        const std::pair<size_t, size_t> forcedSourceRows = duplicateForcedSource(box);
+        std::pair<size_t, size_t> const forcedSourceRows = duplicateForcedSource(box);
         if (opt.verbose) std::cout
                 << "\n"
                 << "    total of " << forcedSourceRows.first << " ForcedSource rows processed, " << forcedSourceRows.second << " recorded\n";
