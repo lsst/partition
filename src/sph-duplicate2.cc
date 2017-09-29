@@ -129,6 +129,9 @@ namespace {
             ("duplicate.ra-shift,t", po::value<double>(),
                                      "Shift to the right in the RA dimension (degrees)")
 
+            ("duplicate.copies,j", po::value<uint32_t>()->default_value(1),
+                                     "Number of times to copy and shift each element (if not 1)")
+
             ("duplicate.htm-subdivision-level,l", po::value<int>()->default_value(0),
                                                   "The number of HTM subdivision level to disambiguate Object IDs "
                                                   "(in the range of 9 to 13.\n"
@@ -190,8 +193,9 @@ namespace {
             indir  = _getMandatoryOption <std::string> ("indir", vm);
             outdir = _getMandatoryOption <std::string> ("outdir", vm);
 
-            raShift             = _getMandatoryOption <double> ("duplicate.ra-shift", vm);
-            htmSubdivisionLevel = _getMandatoryOption <int>    ("duplicate.htm-subdivision-level", vm);
+            raShift             = _getMandatoryOption<double>  ("duplicate.ra-shift", vm);
+            duplicates          = _getMandatoryOption<uint32_t>("duplicate.count", vm);
+            htmSubdivisionLevel = _getMandatoryOption<int>     ("duplicate.htm-subdivision-level", vm);
             if (htmSubdivisionLevel) {
                 if (!(htmSubdivisionLevel >= 9) && (htmSubdivisionLevel <= part::HTM_MAX_LEVEL))
                     throw new std::range_error("invalid HTM subdivision level");
@@ -240,6 +244,7 @@ namespace {
         std::string outdir;
 
         double      raShift;
+        uint32_t    duplicates;
         int         htmSubdivisionLevel;
         std::string htmMaps;
         bool        storeInput;
@@ -258,11 +263,34 @@ namespace {
     /// HtmId generator for level 20
     sphgeom::HtmPixelization htmIdGen20 (20);
     
-    /// Packaged sperical coordinate
+    /// Packaged spherical coordinate
     struct RaDecl {
         double ra;
         double decl;
     };
+
+
+    // @return an equivalent RA where RA >=0 and RA < 360
+    double normalize0To360(double inRa) {
+        double fullCircle = 360.0;
+        double ra = inRa%fullCircle;  // prevent long loop in case of large absolute values.
+        while (ra < 0) ra += fullCircle;
+        while (ra >= fullCircle) ra -= fullCircle;
+        return ra;
+    }
+
+
+    // @return an RA +/- 180 degrees of the targetRa. Values for targetRa are expected to
+    // be within a few rotations of zero, otherwise this could take a while.
+    double nearestNeg180To180(double targetRa, double inRa) {
+        double fullCircle = 360.0;
+        double halfC = fullCircle/2.0;
+        double ra = inRa%fullCircle;  // prevent long loop in case of large absolute values.
+        while (targetRa - ra < -halfC) ra += fullCircle;
+        while (targetRa + ra >  halfC) ra -= fullCircle;
+        return ra;
+    }
+
 
     /// Transform RA/DECL
     /**
@@ -272,15 +300,32 @@ namespace {
      */
     RaDecl transformRaDecl (double ra,
                             double decl,
-                            part::SphericalBox const & box) {
+                            part::SphericalBox const & box,
+                            double multiplier = 1.0) {
         RaDecl coord {ra, decl};
 
-        coord.ra += opt.raShift;
-        double const raMax4wrap = box.getLonMax() + (box.wraps() ? 360. : 0.);
-        if (coord.ra >= raMax4wrap) coord.ra = box.getLonMin() + (coord.ra - raMax4wrap);
+        coord.ra += opt.raShift * multiplier;
+
+        // If the total shift is greater than the width of the box, the following
+        // may fail to get the point back in the box. Our shifts are expected to be tiny
+        // compared to the box width, so this should not be an issue.
+        double raComp = nearestNeg180To180(box.getLonMax(), coord.ra);
+        if (raComp >= box.getLonMax()) {
+            raComp -= box.getLonMax();
+            raComp += box.getLonMin();
+            coord.ra = raComp;
+        }
+        coord.ra = normalize0To360(coord.ra);
+
+        // &&& I think this all needs to be normalized (are all the RA's in the box 360.x or are some 0.x? Is there a rule?)
+        // double const raMax4wrap = box.getLonMax() + (box.wraps() ? 360. : 0.); &&&
+        // if (coord.ra >= raMax4wrap) coord.ra = box.getLonMin() + (coord.ra - raMax4wrap); &&&
 
         return coord;
     }
+
+
+
 
     /// The generator class for issuing series of unique 64-bit identifiers
     class PrimaryKeyGenerator {
@@ -326,6 +371,7 @@ namespace {
         /// Allocate and return the next key in a series
         uint64_t next (uint64_t const    oldId,
                        RaDecl   const  & coord) {
+            // &&& verify this doesn't break
 
             // Compute new ID for the shifted RA/DECL using the requested
             // algorithm.
@@ -676,8 +722,9 @@ namespace {
 
     /// Transformation table instances. One map is for the original (input) objects,
     /// and the other one - for the duplicate ones.
-    ObjectIdTransformMap objIdTransformInput,
-                         objIdTransformDuplicate;
+    ObjectIdTransformMap objIdTransformInput;
+    // make a map of input to output for multiple copies.
+    std::map<uint64_t, std::map<int, uint64_t>> objIdTransformDuplicates;
 
     /// Objects which were found out-of-the partition box. THese objects
     /// will not be duplicated or recorded into the output streams.
@@ -687,6 +734,8 @@ namespace {
     size_t duplicateObjectRow (std::string              & line,
                                part::SphericalBox const & box,
                                std::ofstream            & os) {
+        int rowsWritten = 0; // Number of duplicate objects written to new file.
+        bool inputWritten = false;
 
         // Split the input line into tokens and store them
         // in a temporrary array at positions which are supposed to match
@@ -740,44 +789,53 @@ namespace {
 
         objIdTransformInput[deepSourceId] = newInputDeepSourceId;
 
-        // Position transformation
+        // &&& start loop 0 to duplicate.copies
+        for (int j=0; j < opt.duplicates; ++j) {
 
-        RaDecl const coord = transformRaDecl(ra, decl, box);
+            // Position transformation
+            double multiplier = j+1;
+            RaDecl const coord = transformRaDecl(ra, decl, box, multiplier); // &&& add multiplier j to function
 
-        // Compute new Object ID for the shifted RA/DECL using an algorithm
-        // requested when invoking the application.
+            // Compute new Object ID for the shifted RA/DECL using an algorithm
+            // requested when invoking the application.
+            uint64_t const newDeepSourceId = pkGenObject.next(deepSourceId, coord);
 
-        uint64_t const newDeepSourceId = pkGenObject.next(deepSourceId, coord);
-
-        if (opt.debug) {
-            std::cout
+            if (opt.debug) {
+                std::cout
                 << "\n"
                 << "        deepSourceId: " <<         deepSourceId << "  " <<         (deepSourceId >> 32) << " " <<         (deepSourceId % (1UL << 32)) << "\n"
                 << "newInputDeepSourceId: " << newInputDeepSourceId << "  " << (newInputDeepSourceId >> 32) << " " << (newInputDeepSourceId % (1UL << 32)) << "\n"
                 << "     newDeepSourceId: " <<      newDeepSourceId << "  " <<      (newDeepSourceId >> 32) << " " <<      (newDeepSourceId % (1UL << 32)) << "\n"
                 << "                  ra: " <<  boost::lexical_cast<std::string>(ra)   << " -> " << boost::lexical_cast<std::string>(coord.ra)   << "\n"
                 << "                decl: " << boost::lexical_cast<std::string>(decl) << " -> " << boost::lexical_cast<std::string>(coord.decl) << "\n";
-        }
-        objIdTransformDuplicate[deepSourceId] = newDeepSourceId;
+            }
+            // &&& Object table duplication, shift RA second time, need a second id, need to add another row to file.
+            //objIdTransformDuplicates[deepSourceId] = newDeepSourceId;  // &&& make new map of maps or sets so multiple  newDeepSourceId's can be stored.
+            // Add an entry to the map for each copy made.
+            objIdTransformDuplicates[deepSourceId].emplace(j, newDeepSourceId);  // &&& check if the new id is unique???
 
-        // Save the input row if requested.
-        // Then update the row and store the updated row as well.
+            // Save the input row if requested.
+            // Then update the row and store the updated row as well.
 
-        if (opt.storeInput) {
-            tokens[coldefObject.idxDeepSourceId] = boost::lexical_cast<std::string> (newInputDeepSourceId);
+            if (opt.storeInput && !inputWritten) {
+                inputWritten = true;
+                tokens[coldefObject.idxDeepSourceId] = boost::lexical_cast<std::string> (newInputDeepSourceId);
+                tokens[coldefObject.idxChunkId]      = "0";
+                tokens[coldefObject.idxSubChunkId]   = "0";
+                writeRow(tokens, os);
+                ++rowsWritten;
+            }
+            tokens[coldefObject.idxDeepSourceId] = boost::lexical_cast<std::string> (newDeepSourceId);
+            tokens[coldefObject.idxRa]           = boost::lexical_cast<std::string> (coord.ra);
+            tokens[coldefObject.idxDecl]         = boost::lexical_cast<std::string> (coord.decl);
             tokens[coldefObject.idxChunkId]      = "0";
             tokens[coldefObject.idxSubChunkId]   = "0";
             writeRow(tokens, os);
-        }  
-        tokens[coldefObject.idxDeepSourceId] = boost::lexical_cast<std::string> (newDeepSourceId);
-        tokens[coldefObject.idxRa]           = boost::lexical_cast<std::string> (coord.ra);
-        tokens[coldefObject.idxDecl]         = boost::lexical_cast<std::string> (coord.decl);
-        tokens[coldefObject.idxChunkId]      = "0";
-        tokens[coldefObject.idxSubChunkId]   = "0";
-
-        writeRow(tokens, os);
-        
-        return opt.storeInput ? 2 : 1;
+            ++rowsWritten;
+            // &&& end loop
+        }
+        //return opt.storeInput ? 2 : 1;  // &&& return number of rows written
+        return rowsWritten;
     }
 
     /// Duplicate all rows of the chunk's Object table
@@ -794,7 +852,7 @@ namespace {
                                              std::ofstream::trunc );
 
         objIdTransformInput    .clear();
-        objIdTransformDuplicate.clear();
+        objIdTransformDuplicates.clear();
 
         for (std::string line; std::getline(infile, line);) {
             numRecorded += duplicateObjectRow(line, box, outfile);
@@ -808,7 +866,7 @@ namespace {
     size_t duplicateSourceRow (std::string              & line,
                                part::SphericalBox const & box,
                                std::ofstream            & os) {
-
+        int rowsWritten = 0;
         // Split the input line into tokens and store them
         // in a temporrary array at positions which are supposed to match
         // the correposnding ColDef
@@ -860,6 +918,7 @@ namespace {
         
         if (objIdOutOfBox.count(objectId)) return 0;
 
+
         // Compute the new Source ID for the input row if requested
         
         uint64_t const newInputId = opt.forceNewKeys ? pkGenSource.next(id, RaDecl {coord_ra, coord_decl}) : id;
@@ -872,30 +931,37 @@ namespace {
                     sphgeom::LonLat::fromDegrees(coord_ra, coord_decl))) :
             coord_htmId20;
 
-        // Position transformation
+        // &&& start loop (create one copy per map object and get multiplier j from map)
+        bool inputWritten = false;
+        auto idMap = objIdTransformDuplicates[objectId];
+        for (auto& elem : idMap) {
+            int const j = elem.first;
+            uint64_t const newObjectId = elem.second;
 
-        RaDecl const coord = transformRaDecl(        coord_ra,         coord_decl, box),
-             cluster_coord = transformRaDecl(cluster_coord_ra, cluster_coord_decl, box);
+            // Position transformation
+            double multiplier = j+1;
+            RaDecl const coord         = transformRaDecl(        coord_ra,         coord_decl, box, multiplier); // &&& add multiplier
+            RaDecl const cluster_coord = transformRaDecl(cluster_coord_ra, cluster_coord_decl, box, multiplier); // &&& add multiplier
 
-        // Compute new Source ID for the shifted RA/DECL using an algorithm
-        // requested when invoking the application.
+            // Compute new Source ID for the shifted RA/DECL using an algorithm
+            // requested when invoking the application.
 
-        uint64_t const newId = pkGenSource.next(id, coord);
+            uint64_t const newId = pkGenSource.next(id, coord);
 
-        // Compute new HtmId (level=20) for the source
+            // Compute new HtmId (level=20) for the source
 
-        uint64_t const newCoord_htmId20 =
-            htmIdGen20.index (
-                sphgeom::UnitVector3d (
-                    sphgeom::LonLat::fromDegrees(coord.ra, coord.decl)));
+            uint64_t const newCoord_htmId20 =
+                    htmIdGen20.index (
+                            sphgeom::UnitVector3d (
+                                    sphgeom::LonLat::fromDegrees(coord.ra, coord.decl)));
 
-        ObjectIdTransformMap::const_iterator const itr = objIdTransformDuplicate.find(objectId);
-        if (itr == objIdTransformDuplicate.end())
-            throw new std::out_of_range("no replacememnt found for objectId: "+std::to_string(objectId));
-        uint64_t const newObjectId = itr->second;
+            // ObjectIdTransformMap::const_iterator const itr = objIdTransformDuplicate.find(objectId); &&&
+            // if (itr == objIdTransformDuplicate.end()) &&&
+            //     throw new std::out_of_range("no replacememnt found for objectId: "+std::to_string(objectId));   // &&&
+            // uint64_t const newObjectId = itr->second; &&&
 
-        if (opt.debug) {
-            std::cout
+            if (opt.debug) {
+                std::cout
                 << "\n"
                 << "                   id: " <<         id << "  " <<         (id >> 32) << " " <<         (id % (1UL << 32)) << "\n"
                 << "           newInputId: " << newInputId << "  " << (newInputId >> 32) << " " << (newInputId % (1UL << 32)) << "\n"
@@ -909,28 +975,35 @@ namespace {
                 << "          newObjectId: " << newObjectId << "  " << (newObjectId >> 32) << " " << (newObjectId % (1UL << 32)) << "\n"
                 << "     cluster_coord_ra: " << boost::lexical_cast<std::string>(cluster_coord_ra)   << " -> " << boost::lexical_cast<std::string>(cluster_coord.ra)   << "\n"
                 << "   cluster_coord_decl: " << boost::lexical_cast<std::string>(cluster_coord_decl) << " -> " << boost::lexical_cast<std::string>(cluster_coord.decl) << "\n";
-        }
+            }
 
-        // Save the input row if requested.
-        // Then update the row and store the updated row as well.
+            // Save the input row if requested.
+            // Then update the row and store the updated row as well.
 
-        if (opt.storeInput) {
-            tokens[coldefSource.idxId]           = boost::lexical_cast<std::string> (newInputId);
-            tokens[coldefSource.idxCoordHtmId20] = boost::lexical_cast<std::string> (newInputCoord_htmId20);
-            tokens[coldefSource.idxObjectId]     = boost::lexical_cast<std::string> (objIdTransformInput[objectId]);
+            if (opt.storeInput && !inputWritten) { // &&& first time only
+                inputWritten = true;
+                tokens[coldefSource.idxId]           = boost::lexical_cast<std::string> (newInputId);
+                tokens[coldefSource.idxCoordHtmId20] = boost::lexical_cast<std::string> (newInputCoord_htmId20);
+                tokens[coldefSource.idxObjectId]     = boost::lexical_cast<std::string> (objIdTransformInput[objectId]);
+                writeRow(tokens, os);
+                ++rowsWritten;
+            }
+            tokens[coldefSource.idxId]               = boost::lexical_cast<std::string> (newId);
+            tokens[coldefSource.idxCoordRa]          = boost::lexical_cast<std::string> (coord.ra);
+            tokens[coldefSource.idxCoordDecl]        = boost::lexical_cast<std::string> (coord.decl);
+            tokens[coldefSource.idxCoordHtmId20]     = boost::lexical_cast<std::string> (newCoord_htmId20);
+            tokens[coldefSource.idxObjectId]         = boost::lexical_cast<std::string> (newObjectId);
+            tokens[coldefSource.idxClusterCoordRa]   = boost::lexical_cast<std::string> (cluster_coord.ra);
+            tokens[coldefSource.idxClusterCoordDecl] = boost::lexical_cast<std::string> (cluster_coord.decl);
+
             writeRow(tokens, os);
+            ++rowsWritten;
+
+            // &&& end loop
         }
-        tokens[coldefSource.idxId]               = boost::lexical_cast<std::string> (newId);
-        tokens[coldefSource.idxCoordRa]          = boost::lexical_cast<std::string> (coord.ra);
-        tokens[coldefSource.idxCoordDecl]        = boost::lexical_cast<std::string> (coord.decl);
-        tokens[coldefSource.idxCoordHtmId20]     = boost::lexical_cast<std::string> (newCoord_htmId20);
-        tokens[coldefSource.idxObjectId]         = boost::lexical_cast<std::string> (newObjectId);
-        tokens[coldefSource.idxClusterCoordRa]   = boost::lexical_cast<std::string> (cluster_coord.ra);
-        tokens[coldefSource.idxClusterCoordDecl] = boost::lexical_cast<std::string> (cluster_coord.decl);
 
-        writeRow(tokens, os);
-
-        return opt.storeInput ? 2 : 1;
+        // return opt.storeInput ? 2 : 1; &&&
+        return rowsWritten;
     }
 
     /// Duplicate all rows of the chunk's Source table
@@ -958,10 +1031,10 @@ namespace {
     size_t duplicateForcedSourceRow (std::string              & line,
                                      part::SphericalBox const & box,
                                      std::ofstream            & os) {
-
+        int rowsWritten = 0;
         // Split the input line into tokens and store them
-        // in a temporrary array at positions which are supposed to match
-        // the correposnding ColDef
+        // in a temporary array at positions which are supposed to match
+        // the corresponding ColDef
 
         std::stringstream is(line);
 
@@ -998,35 +1071,47 @@ namespace {
         
         if (objIdOutOfBox.count(deepSourceId)) return 0;
 
+        // &&& start loop, Make one copy of the row for each Object.
+        bool inputWritten = false;
+        auto idMap = objIdTransformDuplicates[deepSourceId];
+        for (auto& elem : idMap) {
+            int const j = elem.first;
+            uint64_t const newDeepSourceId = elem.second;
+            // ObjectIdTransformMap::const_iterator const itr = objIdTransformDuplicate.find(deepSourceId); &&&
+            // if (itr == objIdTransformDuplicate.end()) &&&
+            //    throw new std::out_of_range("no replacememnt found for deepSourceId: "+std::to_string(deepSourceId)); &&&
+            // uint64_t const newDeepSourceId = itr->second; &&&
 
-        ObjectIdTransformMap::const_iterator const itr = objIdTransformDuplicate.find(deepSourceId);
-        if (itr == objIdTransformDuplicate.end())
-            throw new std::out_of_range("no replacememnt found for deepSourceId: "+std::to_string(deepSourceId));
-        uint64_t const newDeepSourceId = itr->second;
-
-        if (opt.debug) {
-            std::cout
+            if (opt.debug) {
+                std::cout
                 << "\n"
                 << "   deepSourceId: " <<    deepSourceId << "  " <<    (deepSourceId >> 32) << " " <<    (deepSourceId % (1UL << 32)) << "\n"
                 << "newDeepSourceId: " << newDeepSourceId << "  " << (newDeepSourceId >> 32) << " " << (newDeepSourceId % (1UL << 32)) << "\n";
-        }
+            }
 
-        // Save the input row if requested.
-        // Then update the row and store the updated row as well.
+            // Save the input row if requested.
+            // Then update the row and store the updated row as well.
 
-        if (opt.storeInput) {
-            tokens[coldefForcedSource.idxDeepSourceId] = boost::lexical_cast<std::string> (objIdTransformInput[deepSourceId]);
+            // &&& ForcedSource entries don't have ids?
+
+            if (opt.storeInput && !inputWritten) {  // &&& write only once
+                inputWritten = true;
+                tokens[coldefForcedSource.idxDeepSourceId] = boost::lexical_cast<std::string> (objIdTransformInput[deepSourceId]);
+                tokens[coldefForcedSource.idxChunkId]      = "0";
+                tokens[coldefForcedSource.idxSubChunkId]   = "0";
+                writeRow(tokens, os);
+                ++rowsWritten;
+            }
+            tokens[coldefForcedSource.idxDeepSourceId] = boost::lexical_cast<std::string> (newDeepSourceId);
             tokens[coldefForcedSource.idxChunkId]      = "0";
             tokens[coldefForcedSource.idxSubChunkId]   = "0";
+
             writeRow(tokens, os);
+            ++rowsWritten;
+            // &&& end loop
         }
-        tokens[coldefForcedSource.idxDeepSourceId] = boost::lexical_cast<std::string> (newDeepSourceId);
-        tokens[coldefForcedSource.idxChunkId]      = "0";
-        tokens[coldefForcedSource.idxSubChunkId]   = "0";
-
-        writeRow(tokens, os);
-
-        return opt.storeInput ? 2 : 1;
+        // return opt.storeInput ? 2 : 1; &&&
+        return rowsWritten;
     }
 
     /// Duplicate all rows of the chunk's ForcedSource table
