@@ -980,7 +980,7 @@ size_t duplicateSourceRow (std::string              & line,
     // the correposnding ColDef
 
     // &&& read in the object id map file, if needed.
-    createObjIdMaps();
+    // createObjIdMaps(); &&& delete
 
     /* &&&
     std::stringstream is(line);
@@ -1186,6 +1186,8 @@ std::pair<size_t, size_t> duplicateSource (part::SphericalBox const & box) {
     std::ifstream  infile (  inFileName, std::ifstream::in );
     std::ofstream outfile ( outFileName, std::ofstream::out |
             std::ofstream::trunc );
+
+    createObjIdMaps();
 
     for (std::string line; std::getline(infile, line);) {
         numRecorded += duplicateSourceRow(line, box, outfile);
