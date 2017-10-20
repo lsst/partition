@@ -1316,11 +1316,14 @@ std::pair<size_t, size_t> duplicateForcedSource (part::SphericalBox const & box)
    std::ofstream outfile ( outFileName, std::ofstream::out |
            std::ofstream::trunc );
 
+   createObjIdMaps();
+
    for (std::string line; std::getline(infile, line);) {
        numRecorded += duplicateForcedSourceRow(line, box, outfile);
        ++numProcessed;
        if ((opt.maxForcedSourceRows > 0) && (numProcessed >= opt.maxForcedSourceRows)) break;
    }
+
    return std::make_pair (numProcessed, numRecorded);
 }
 
