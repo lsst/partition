@@ -1233,6 +1233,13 @@ size_t duplicateForcedSourceRow (std::string              & line,
     // in a temporary array at positions which are supposed to match
     // the corresponding ColDef
     std::vector<std::string> tokens = readTokens(line, coldefForcedSource.columns.size(), "ForcedSource");
+    int pos = tokens.size();
+    // Add ra and dec coords to the end so the partitioner has something to work with.
+    int const coordRaCol = pos;
+    int const coordDeclCol = pos+1;
+    tokens.push_back(std::to_string(0.0));
+    tokens.push_back(std::to_string(0.0));
+
 
     // Extract values which need to be transformed
 
@@ -1271,6 +1278,10 @@ size_t duplicateForcedSourceRow (std::string              & line,
         auto& data = *iter;
         uint64_t const newDeepSourceId = data->objIdNew;
 
+        RaDecl coord = data->raDeclNew;
+        tokens[coordRaCol] = std::to_string(coord.ra);
+        tokens[coordDeclCol] = std::to_string(coord.decl);
+
         if (opt.debug) {
             std::cout
             << "\n"
@@ -1280,8 +1291,6 @@ size_t duplicateForcedSourceRow (std::string              & line,
 
         // Save the input row if requested.
         // Then update the row and store the updated row as well.
-
-        // &&& ForcedSource entries don't have ids?
 
         if (opt.storeInput && !inputWritten) {  // &&& write only once
             inputWritten = true;
