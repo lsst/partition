@@ -722,11 +722,17 @@ void writeRow (std::vector<std::string> const & tokens, std::ofstream & os) {
 
 
 /// Add RA and Dec to the beginning of the token list and then write the row.
-void writeRow(RaDecl const& coord, std::vector<std::string> const & tokens, std::ofstream & os) {
+void writeRow(RaDecl const& coord, std::vector<std::string> const& tokens, std::ofstream & os) {
     std::vector<std::string> newTokens;
     newTokens.push_back(std::to_string(coord.ra));
     newTokens.push_back(std::to_string(coord.decl));
     newTokens.insert(newTokens.end(), tokens.begin(), tokens.end());
+
+    for (size_t idx = 0; idx < newTokens.size(); ++idx) { // &&&
+        if (idx) std::cout << ",";  // &&&
+        std::cout << newTokens[idx]; // &&&
+    }
+    std::cout << "\n"; // &&&
     writeRow(newTokens, os);
 }
 
@@ -1296,16 +1302,18 @@ size_t duplicateForcedSourceRow (std::string              & line,
 
         if (opt.storeInput && !inputWritten) {  // &&& write only once
             inputWritten = true;
-            tokens[coldefForcedSource.idxDeepSourceId] = boost::lexical_cast<std::string> (objIdTransformInput[deepSourceId]);
+            //tokens[coldefForcedSource.idxDeepSourceId] = boost::lexical_cast<std::string> (objIdTransformInput[deepSourceId]);
+            tokens[coldefForcedSource.idxDeepSourceId] = boost::lexical_cast<std::string>(newDeepSourceId);
             tokens[coldefForcedSource.idxChunkId]      = "0";
             tokens[coldefForcedSource.idxSubChunkId]   = "0";
+            std::cout << "a:" << tokens.size() << "->";
             writeRow(coord, tokens, os);
             ++rowsWritten;
         }
-        tokens[coldefForcedSource.idxDeepSourceId] = boost::lexical_cast<std::string> (newDeepSourceId);
+        tokens[coldefForcedSource.idxDeepSourceId] = boost::lexical_cast<std::string>(newDeepSourceId);
         tokens[coldefForcedSource.idxChunkId]      = "0";
         tokens[coldefForcedSource.idxSubChunkId]   = "0";
-
+        std::cout << "b:" << tokens.size() << "->";
         writeRow(coord, tokens, os);
         ++rowsWritten;
     }
