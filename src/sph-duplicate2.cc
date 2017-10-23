@@ -721,6 +721,16 @@ void writeRow (std::vector<std::string> const & tokens, std::ofstream & os) {
 }
 
 
+/// Add RA and Dec to the beginning of the token list and then write the row.
+void writeRow(RaDecl const& coord, std::vector<std::string> const & tokens, std::ofstream & os) {
+    std::vector<std::string> newTokens;
+    newTokens.push_back(std::to_string(coord.ra));
+    newTokens.push_back(std::to_string(coord.decl));
+    newTokens.insert(newTokens.end(), tokens.begin(), tokens.end());
+    writeRow(newTokens, os);
+}
+
+
 std::vector<std::string> readTokens(std::string const& line, int columns, std::string name="?") {
     std::stringstream is(line);
     unsigned int col = 0;
@@ -1233,13 +1243,6 @@ size_t duplicateForcedSourceRow (std::string              & line,
     // in a temporary array at positions which are supposed to match
     // the corresponding ColDef
     std::vector<std::string> tokens = readTokens(line, coldefForcedSource.columns.size(), "ForcedSource");
-    int pos = tokens.size();
-    // Add ra and dec coords to the end so the partitioner has something to work with.
-    int const coordRaCol = pos;
-    int const coordDeclCol = pos+1;
-    tokens.push_back(std::to_string(0.0));
-    tokens.push_back(std::to_string(0.0));
-
 
     // Extract values which need to be transformed
 
@@ -1278,9 +1281,8 @@ size_t duplicateForcedSourceRow (std::string              & line,
         auto& data = *iter;
         uint64_t const newDeepSourceId = data->objIdNew;
 
+        // The partitioner will need this to place this row in the correct chunk.
         RaDecl coord = data->raDeclNew;
-        tokens[coordRaCol] = std::to_string(coord.ra);
-        tokens[coordDeclCol] = std::to_string(coord.decl);
 
         if (opt.debug) {
             std::cout
@@ -1297,14 +1299,14 @@ size_t duplicateForcedSourceRow (std::string              & line,
             tokens[coldefForcedSource.idxDeepSourceId] = boost::lexical_cast<std::string> (objIdTransformInput[deepSourceId]);
             tokens[coldefForcedSource.idxChunkId]      = "0";
             tokens[coldefForcedSource.idxSubChunkId]   = "0";
-            writeRow(tokens, os);
+            writeRow(coord, tokens, os);
             ++rowsWritten;
         }
         tokens[coldefForcedSource.idxDeepSourceId] = boost::lexical_cast<std::string> (newDeepSourceId);
         tokens[coldefForcedSource.idxChunkId]      = "0";
         tokens[coldefForcedSource.idxSubChunkId]   = "0";
 
-        writeRow(tokens, os);
+        writeRow(coord, tokens, os);
         ++rowsWritten;
     }
     return rowsWritten;
