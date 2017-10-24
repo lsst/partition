@@ -1271,7 +1271,7 @@ size_t duplicateForcedSourceRow (std::string              & line,
     if (objIdOutOfBox.count(deepSourceId)) return 0;
 
     // &&& start loop, Make one copy of the row for each Object.
-    bool inputWritten = false;
+    // bool inputWritten = false; &&&
     //auto idMap = objIdTransformDuplicates[deepSourceId]; &&& delete
     //for (auto& elem : idMap) { &&& delete
     // Find the base object id
@@ -1297,6 +1297,7 @@ size_t duplicateForcedSourceRow (std::string              & line,
             << "newDeepSourceId: " << newDeepSourceId << "  " << (newDeepSourceId >> 32) << " " << (newDeepSourceId % (1UL << 32)) << "\n";
         }
 
+#if 0  // &&&
         // Save the input row if requested.
         // Then update the row and store the updated row as well.
 
@@ -1310,10 +1311,11 @@ size_t duplicateForcedSourceRow (std::string              & line,
             writeRow(coord, tokens, os);
             ++rowsWritten;
         }
+#endif
         tokens[coldefForcedSource.idxDeepSourceId] = boost::lexical_cast<std::string>(newDeepSourceId);
-        tokens[coldefForcedSource.idxChunkId]      = "0";
-        tokens[coldefForcedSource.idxSubChunkId]   = "0";
-        std::cout << "b:" << tokens.size() << "->";
+        // tokens[coldefForcedSource.idxChunkId]      = "0"; &&&
+        // tokens[coldefForcedSource.idxSubChunkId]   = "0"; &&&
+        // std::cout << "b:" << tokens.size() << "->"; // &&&
         writeRow(coord, tokens, os);
         ++rowsWritten;
     }
