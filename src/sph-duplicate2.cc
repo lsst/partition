@@ -728,11 +728,11 @@ void writeRow(RaDecl const& coord, std::vector<std::string> const& tokens, std::
     newTokens.push_back(std::to_string(coord.decl));
     newTokens.insert(newTokens.end(), tokens.begin(), tokens.end());
 
-    for (size_t idx = 0; idx < newTokens.size(); ++idx) { // &&&
-        if (idx) std::cout << ",";  // &&&
-        std::cout << newTokens[idx]; // &&&
-    }
-    std::cout << "\n"; // &&&
+    //for (size_t idx = 0; idx < newTokens.size(); ++idx) { // &&&
+    //    if (idx) std::cout << ",";  // &&&
+    //    std::cout << newTokens[idx]; // &&&
+    //}
+    //std::cout << "\n"; // &&&
     writeRow(newTokens, os);
 }
 
@@ -1084,16 +1084,16 @@ size_t duplicateSourceRow (std::string              & line,
             << "   cluster_coord_decl: " << boost::lexical_cast<std::string>(cluster_coord_decl) << " -> " << boost::lexical_cast<std::string>(cluster_coord.decl) << "\n";
         }
 
-    tokens[coldefSource.idxId]               = boost::lexical_cast<std::string> (newId);
-    tokens[coldefSource.idxCoordRa]          = boost::lexical_cast<std::string> (coord.ra);
-    tokens[coldefSource.idxCoordDecl]        = boost::lexical_cast<std::string> (coord.decl);
-    tokens[coldefSource.idxCoordHtmId20]     = boost::lexical_cast<std::string> (newCoord_htmId20);
-    tokens[coldefSource.idxObjectId]         = boost::lexical_cast<std::string> (newObjectId);
-    tokens[coldefSource.idxClusterCoordRa]   = boost::lexical_cast<std::string> (cluster_coord.ra);
-    tokens[coldefSource.idxClusterCoordDecl] = boost::lexical_cast<std::string> (cluster_coord.decl);
+        tokens[coldefSource.idxId]               = boost::lexical_cast<std::string> (newId);
+        tokens[coldefSource.idxCoordRa]          = boost::lexical_cast<std::string> (coord.ra);
+        tokens[coldefSource.idxCoordDecl]        = boost::lexical_cast<std::string> (coord.decl);
+        tokens[coldefSource.idxCoordHtmId20]     = boost::lexical_cast<std::string> (newCoord_htmId20);
+        tokens[coldefSource.idxObjectId]         = boost::lexical_cast<std::string> (newObjectId);
+        tokens[coldefSource.idxClusterCoordRa]   = boost::lexical_cast<std::string> (cluster_coord.ra);
+        tokens[coldefSource.idxClusterCoordDecl] = boost::lexical_cast<std::string> (cluster_coord.decl);
 
-    writeRow(tokens, os);
-    ++rowsWritten;
+        writeRow(tokens, os);
+        ++rowsWritten;
     }
     return rowsWritten;
 }
@@ -1122,123 +1122,6 @@ std::pair<size_t, size_t> duplicateSource (part::SphericalBox const & box) {
     return std::make_pair (numProcessed, numRecorded);
 }
 
-
-
-#if 0 // &&& re-write duplicateForcedSourceRow to use the dataMap_xxxx.map file
-/// Duplicate the next row of the chunk's ForcedSource table
-size_t duplicateForcedSourceRow (std::string              & line,
-        part::SphericalBox const & box,
-        std::ofstream            & os) {
-    int rowsWritten = 0;
-    // Split the input line into tokens and store them
-    // in a temporary array at positions which are supposed to match
-    // the corresponding ColDef
-
-    /* &&&
-    std::stringstream is(line);
-
-    std::vector<std::string> tokens(coldefForcedSource.columns.size());
-
-    size_t colnum = 0;
-
-    std::string token;
-    while (std::getline(is, token, '\t')) {
-        if (colnum == tokens.size())
-            throw new std::range_error("too many tokens in a row of the input ForcedSource file");
-        tokens[colnum++] = token;
-    }
-    if (colnum != tokens.size())
-        throw new std::range_error("too few tokens in a row of the input ForcedSource file");
-    */
-    std::vector<std::string> tokens = readTokens(line, coldefForcedSource.columns.size(), "ForcedSource");
-
-    // Extract values which need to be transformed
-
-    uint64_t deepSourceId (0ULL);
-
-    int idx = 0;
-    for (std::string const token : tokens) {
-        if (coldefForcedSource.idxDeepSourceId == idx) { deepSourceId = boost::lexical_cast<uint64_t>(token); }
-        ++idx;
-    }
-
-    // Skip this source if the Object ID filter is enabled and
-    // the relevant ID doesn't match the filter.
-
-    if (opt.whereObjectId && (opt.whereObjectId != deepSourceId)) return 0;
-
-    // Skip this source if its object was found outside
-    // the partition's box.
-
-    if (objIdOutOfBox.count(deepSourceId)) return 0;
-
-    // &&& start loop, Make one copy of the row for each Object.
-    bool inputWritten = false;
-    auto idMap = objIdTransformDuplicates[deepSourceId];
-    for (auto& elem : idMap) {
-        int const j = elem.first;
-        uint64_t const newDeepSourceId = elem.second;
-        // ObjectIdTransformMap::const_iterator const itr = objIdTransformDuplicate.find(deepSourceId); &&&
-        // if (itr == objIdTransformDuplicate.end()) &&&
-        //    throw new std::out_of_range("no replacememnt found for deepSourceId: "+std::to_string(deepSourceId)); &&&
-        // uint64_t const newDeepSourceId = itr->second; &&&
-
-        if (opt.debug) {
-            std::cout
-            << "\n"
-            << "   deepSourceId: " <<    deepSourceId << "  " <<    (deepSourceId >> 32) << " " <<    (deepSourceId % (1UL << 32)) << "\n"
-            << "newDeepSourceId: " << newDeepSourceId << "  " << (newDeepSourceId >> 32) << " " << (newDeepSourceId % (1UL << 32)) << "\n";
-        }
-
-        // Save the input row if requested.
-        // Then update the row and store the updated row as well.
-
-        // &&& ForcedSource entries don't have ids?
-
-        if (opt.storeInput && !inputWritten) {  // &&& write only once
-            inputWritten = true;
-            tokens[coldefForcedSource.idxDeepSourceId] = boost::lexical_cast<std::string> (objIdTransformInput[deepSourceId]);
-            tokens[coldefForcedSource.idxChunkId]      = "0";
-            tokens[coldefForcedSource.idxSubChunkId]   = "0";
-            writeRow(tokens, os);
-            ++rowsWritten;
-        }
-        tokens[coldefForcedSource.idxDeepSourceId] = boost::lexical_cast<std::string> (newDeepSourceId);
-        tokens[coldefForcedSource.idxChunkId]      = "0";
-        tokens[coldefForcedSource.idxSubChunkId]   = "0";
-
-        writeRow(tokens, os);
-        ++rowsWritten;
-        // &&& end loop
-    }
-    // return opt.storeInput ? 2 : 1; &&&
-    return rowsWritten;
-}
-#endif
-
-
-#if 0 // &&& re-write duplicateSource to use the dataMap_xxxx.map file
-/// Duplicate all rows of the chunk's ForcedSource table
-std::pair<size_t, size_t> duplicateForcedSource (part::SphericalBox const & box) {
-
-    std::string const inFileName = opt.indir  + "/ForcedSource_" + std::to_string (opt.chunkId) + ".txt",
-            outFileName = opt.outdir + "/ForcedSource_" + std::to_string (opt.chunkId) + ".txt";
-
-    size_t numProcessed = 0,
-            numRecorded  = 0;
-
-    std::ifstream  infile (  inFileName, std::ifstream::in );
-    std::ofstream outfile ( outFileName, std::ofstream::out |
-            std::ofstream::trunc );
-
-    for (std::string line; std::getline(infile, line);) {
-        numRecorded += duplicateForcedSourceRow(line, box, outfile);
-        ++numProcessed;
-        if ((opt.maxForcedSourceRows > 0) && (numProcessed >= opt.maxForcedSourceRows)) break;
-    }
-    return std::make_pair (numProcessed, numRecorded);
-}
-#endif
 
 /// Duplicate the next row of the chunk's ForcedSource table according to dataMap_xxxx.map file
 size_t duplicateForcedSourceRow (std::string              & line,
@@ -1270,10 +1153,6 @@ size_t duplicateForcedSourceRow (std::string              & line,
 
     if (objIdOutOfBox.count(deepSourceId)) return 0;
 
-    // &&& start loop, Make one copy of the row for each Object.
-    // bool inputWritten = false; &&&
-    //auto idMap = objIdTransformDuplicates[deepSourceId]; &&& delete
-    //for (auto& elem : idMap) { &&& delete
     // Find the base object id
     auto newIds = objIdMapBaseToNew.find(deepSourceId);
     if (newIds == objIdMapBaseToNew.end()) {
@@ -1297,24 +1176,10 @@ size_t duplicateForcedSourceRow (std::string              & line,
             << "newDeepSourceId: " << newDeepSourceId << "  " << (newDeepSourceId >> 32) << " " << (newDeepSourceId % (1UL << 32)) << "\n";
         }
 
-#if 0  // &&&
-        // Save the input row if requested.
-        // Then update the row and store the updated row as well.
 
-        if (opt.storeInput && !inputWritten) {  // &&& write only once
-            inputWritten = true;
-            //tokens[coldefForcedSource.idxDeepSourceId] = boost::lexical_cast<std::string> (objIdTransformInput[deepSourceId]);
-            tokens[coldefForcedSource.idxDeepSourceId] = boost::lexical_cast<std::string>(newDeepSourceId);
-            tokens[coldefForcedSource.idxChunkId]      = "0";
-            tokens[coldefForcedSource.idxSubChunkId]   = "0";
-            std::cout << "a:" << tokens.size() << "->";
-            writeRow(coord, tokens, os);
-            ++rowsWritten;
-        }
-#endif
         tokens[coldefForcedSource.idxDeepSourceId] = boost::lexical_cast<std::string>(newDeepSourceId);
-        // tokens[coldefForcedSource.idxChunkId]      = "0"; &&&
-        // tokens[coldefForcedSource.idxSubChunkId]   = "0"; &&&
+        tokens[coldefForcedSource.idxChunkId]      = "0";
+        tokens[coldefForcedSource.idxSubChunkId]   = "0";
         // std::cout << "b:" << tokens.size() << "->"; // &&&
         writeRow(coord, tokens, os);
         ++rowsWritten;
