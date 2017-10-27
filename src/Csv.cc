@@ -726,7 +726,7 @@ void Editor::_initialize(std::vector<std::string> const & inputFieldNames,
     int i = 0; // total number of fields
     for (; i < _numInputFields; ++i) {
         std::string const & name = inputFieldNames[i];
-        std::cout << "&&& i->" << name << "\n";
+        std::cout << "in ->" << name << "\n";
         Mapping m = _fieldMap.insert(std::pair<std::string, int>(name, i));
         if (!m.second) {
             throw std::runtime_error("The input CSV field name list contains "
@@ -741,7 +741,7 @@ void Editor::_initialize(std::vector<std::string> const & inputFieldNames,
     }
     for (int j = 0; j < _numOutputFields; ++j) {
         std::string const & name = outputFieldNames[j];
-        std::cout << "&&& o->" << name << "\n";
+        std::cout << "out->" << name << "\n";
         Mapping m = _fieldMap.insert(std::pair<std::string, int>(name, i));
         if (m.second) {
             // The output field name does not match any input field. Create

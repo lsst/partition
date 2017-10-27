@@ -320,10 +320,6 @@ RaDecl transformRaDecl (RaDecl const& inCoord, part::SphericalBox const & box, d
     }
     coord.ra = normalize0To360(coord.ra);
 
-    // &&& I think this all needs to be normalized (are all the RA's in the box 360.x or are some 0.x? Is there a rule?)
-    // double const raMax4wrap = box.getLonMax() + (box.wraps() ? 360. : 0.); &&&
-    // if (coord.ra >= raMax4wrap) coord.ra = box.getLonMin() + (coord.ra - raMax4wrap); &&&
-
     return coord;
 }
 
@@ -372,9 +368,7 @@ public:
     }
 
     /// Allocate and return the next key in a series
-    uint64_t next (uint64_t const    oldId,
-            RaDecl   const  & coord) {
-        // &&& verify this doesn't break
+    uint64_t next (uint64_t const oldId, RaDecl const& coord) {
 
         // Compute new ID for the shifted RA/DECL using the requested
         // algorithm.
@@ -727,12 +721,6 @@ void writeRow(RaDecl const& coord, std::vector<std::string> const& tokens, std::
     newTokens.push_back(std::to_string(coord.ra));
     newTokens.push_back(std::to_string(coord.decl));
     newTokens.insert(newTokens.end(), tokens.begin(), tokens.end());
-
-    //for (size_t idx = 0; idx < newTokens.size(); ++idx) { // &&&
-    //    if (idx) std::cout << ",";  // &&&
-    //    std::cout << newTokens[idx]; // &&&
-    //}
-    //std::cout << "\n"; // &&&
     writeRow(newTokens, os);
 }
 
@@ -900,7 +888,7 @@ size_t duplicateObjectRow (std::string& line, part::SphericalBox const& box,
 
         // Position transformation
         double multiplier = j+1;
-        RaDecl const coord = transformRaDecl(coordBase, box, multiplier); // &&& add multiplier j to function
+        RaDecl const coord = transformRaDecl(coordBase, box, multiplier);
 
         // Compute new Object ID for the shifted RA/DECL using an algorithm
         // requested when invoking the application.
@@ -915,11 +903,9 @@ size_t duplicateObjectRow (std::string& line, part::SphericalBox const& box,
             << "                base: " <<  coordBase.toStr() << "\n"
             << "                 new: " <<  coord.toStr() << "\n";
         }
-        // &&& Object table duplication, shift RA second time, need a second id, need to add another row to file.
-        //objIdTransformDuplicates[deepSourceId] = newDeepSourceId;  // &&& make new map of maps or sets so multiple  newDeepSourceId's can be stored.
+
         // Add an entry to the map for each copy made.
         auto newData = ObjectTransformData::Ptr(new ObjectTransformData(deepSourceId, coordBase, newDeepSourceId, coord));
-        //objIdTransformDuplicates[deepSourceId].emplace(j, newDeepSourceId);  // &&& check if the new id is unique???
         objIdMapBaseToNew[deepSourceId].push_back(newData);
         auto insertRes = objIdMapNewToBase.insert(std::make_pair(newData->objIdNew, newData));
         if (!insertRes.second) {
@@ -952,9 +938,7 @@ size_t duplicateObjectRow (std::string& line, part::SphericalBox const& box,
         writeRow(tokens, os);
         newData->writeObjData(osDataMap);
         ++rowsWritten;
-        // &&& end loop
     }
-    //return opt.storeInput ? 2 : 1;  // &&& return number of rows written
     return rowsWritten;
 }
 
@@ -973,7 +957,6 @@ std::pair<size_t, size_t> duplicateObject (part::SphericalBox const & box) {
     std::ofstream mapfile( mapFileName, std::ofstream::out | std::ofstream::trunc );
 
     objIdTransformInput.clear();
-    // objIdTransformDuplicates.clear(); &&&
     objIdMapBaseToNew.clear();
 
     for (std::string line; std::getline(infile, line);) {
@@ -1041,7 +1024,7 @@ size_t duplicateSourceRow (std::string              & line,
     // Find the base object id
     auto newIds = objIdMapBaseToNew.find(objectId);
     if (newIds == objIdMapBaseToNew.end()) {
-        std::cout << "ERROR objectId not found in map " << objectId;
+        std::cout << "ERROR objectId not found in map " << objectId << std::endl;
         return 0;
     }
     // For each entry, make a new copy of this source with coordinates offset by the same amount as the base object.
@@ -1124,9 +1107,7 @@ std::pair<size_t, size_t> duplicateSource (part::SphericalBox const & box) {
 
 
 /// Duplicate the next row of the chunk's ForcedSource table according to dataMap_xxxx.map file
-size_t duplicateForcedSourceRow (std::string              & line,
-        part::SphericalBox const & box,
-        std::ofstream            & os) {
+size_t duplicateForcedSourceRow (std::string& line, part::SphericalBox const& box, std::ofstream& os) {
     int rowsWritten = 0;
     // Split the input line into tokens and store them
     // in a temporary array at positions which are supposed to match
@@ -1139,7 +1120,9 @@ size_t duplicateForcedSourceRow (std::string              & line,
 
     int idx = 0;
     for (std::string const token : tokens) {
-        if (coldefForcedSource.idxDeepSourceId == idx) { deepSourceId = boost::lexical_cast<uint64_t>(token); }
+        if (coldefForcedSource.idxDeepSourceId == idx) {
+            deepSourceId = boost::lexical_cast<uint64_t>(token);
+        }
         ++idx;
     }
 
@@ -1156,7 +1139,7 @@ size_t duplicateForcedSourceRow (std::string              & line,
     // Find the base object id
     auto newIds = objIdMapBaseToNew.find(deepSourceId);
     if (newIds == objIdMapBaseToNew.end()) {
-        std::cout << "ERROR objectId not found in map " << deepSourceId;
+        std::cout << "ERROR objectId not found in map " << deepSourceId << std::endl;
         return 0;
     }
     // For each entry, make a new copy of this source with coordinates offset by the same amount as the base object.
@@ -1180,7 +1163,6 @@ size_t duplicateForcedSourceRow (std::string              & line,
         tokens[coldefForcedSource.idxDeepSourceId] = boost::lexical_cast<std::string>(newDeepSourceId);
         tokens[coldefForcedSource.idxChunkId]      = "0";
         tokens[coldefForcedSource.idxSubChunkId]   = "0";
-        // std::cout << "b:" << tokens.size() << "->"; // &&&
         writeRow(coord, tokens, os);
         ++rowsWritten;
     }
@@ -1188,29 +1170,26 @@ size_t duplicateForcedSourceRow (std::string              & line,
 }
 
 
-// &&& re-write duplicateSource to use the dataMap_xxxx.map file
-/// Duplicate all rows of the chunk's ForcedSource table
+/// Duplicate all rows of the chunk's ForcedSource table, with one copy per entry in the map file.
 std::pair<size_t, size_t> duplicateForcedSource (part::SphericalBox const & box) {
+    std::string const inFileName = opt.indir  + "/ForcedSource_" + std::to_string (opt.chunkId) + ".txt",
+            outFileName = opt.outdir + "/ForcedSource_" + std::to_string (opt.chunkId) + ".txt";
 
-   std::string const inFileName = opt.indir  + "/ForcedSource_" + std::to_string (opt.chunkId) + ".txt",
-           outFileName = opt.outdir + "/ForcedSource_" + std::to_string (opt.chunkId) + ".txt";
+    size_t numProcessed = 0;
+    size_t numRecorded  = 0;
 
-   size_t numProcessed = 0,
-           numRecorded  = 0;
+    std::ifstream  infile(  inFileName, std::ifstream::in );
+    std::ofstream outfile( outFileName, std::ofstream::out | std::ofstream::trunc );
 
-   std::ifstream  infile (  inFileName, std::ifstream::in );
-   std::ofstream outfile ( outFileName, std::ofstream::out |
-           std::ofstream::trunc );
+    createObjIdMaps();
 
-   createObjIdMaps();
+    for (std::string line; std::getline(infile, line);) {
+        numRecorded += duplicateForcedSourceRow(line, box, outfile);
+        ++numProcessed;
+        if ((opt.maxForcedSourceRows > 0) && (numProcessed >= opt.maxForcedSourceRows)) break;
+    }
 
-   for (std::string line; std::getline(infile, line);) {
-       numRecorded += duplicateForcedSourceRow(line, box, outfile);
-       ++numProcessed;
-       if ((opt.maxForcedSourceRows > 0) && (numProcessed >= opt.maxForcedSourceRows)) break;
-   }
-
-   return std::make_pair (numProcessed, numRecorded);
+    return std::make_pair (numProcessed, numRecorded);
 }
 
 
