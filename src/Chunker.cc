@@ -70,7 +70,8 @@ Chunker::Chunker(double overlap,
 }
 
 Chunker::Chunker(po::variables_map const & vm) {
-    _initialize(vm["part.overlap"].as<double>(),
+    // Overlap is forced to be disabled if using the class in non-RA/DEC paritioning mode
+    _initialize(vm.count("part.pos") == 0 ? 0. : vm["part.overlap"].as<double>(),
                 vm["part.num-stripes"].as<int32_t>(),
                 vm["part.num-sub-stripes"].as<int32_t>());
 }
