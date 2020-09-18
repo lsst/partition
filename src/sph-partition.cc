@@ -24,7 +24,9 @@
 /// \brief The partitioner for tables which have a single
 ///        partitioning position.
 
+#include <fstream>
 #include <iostream>
+#include <mutex>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -38,10 +40,10 @@
 #include "lsst/partition/ChunkReducer.h"
 #include "lsst/partition/CmdLineUtils.h"
 #include "lsst/partition/Csv.h"
+#include "lsst/partition/ObjectIndex.h"
 
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
-
 
 namespace lsst {
 namespace partition {
@@ -59,35 +61,61 @@ public:
 private:
     csv::Editor _editor;
     std::pair<int,int> _pos;
+    int _idField;
     int _chunkIdField;
     int _subChunkIdField;
+    std::string _idFieldName;
+    std::string _chunkIdFieldName;
+    std::string _subChunkIdFieldName;
     Chunker _chunker;
     std::vector<ChunkLocation> _locations;
+    bool _disableChunks;
 };
 
 Worker::Worker(po::variables_map const & vm) :
     ChunkReducer(vm),
     _editor(vm),
     _pos(-1, -1),
+    _idField(-1),
     _chunkIdField(-1),
     _subChunkIdField(-1),
-    _chunker(vm)
+    _chunker(vm),
+    _disableChunks(vm.count("part.disable-chunks") != 0)
 {
-    // Map field names of interest to field indexes.
-    if (vm.count("part.pos") == 0) {
-        throw std::runtime_error("The --part.pos option was not specified.");
+    if (vm.count("part.pos") == 0 && vm.count("part.id") == 0) {
+        throw std::runtime_error("Neither --part.pos not --part.id option were specified.");
     }
     FieldNameResolver fields(_editor);
-    std::string s = vm["part.pos"].as<std::string>();
-    std::pair<std::string, std::string> p = parseFieldNamePair("part.pos", s);
-    _pos.first = fields.resolve("part.pos", s, p.first);
-    _pos.second = fields.resolve("part.pos", s, p.second);
-    if (vm.count("part.chunk") != 0) {
-        s = vm["part.chunk"].as<std::string>();
-        _chunkIdField = fields.resolve("part.chunk", s);
+    if (vm.count("part.pos") != 0) {
+        std::string s = vm["part.pos"].as<std::string>();
+        std::pair<std::string, std::string> p = parseFieldNamePair("part.pos", s);
+        _pos.first = fields.resolve("part.pos", s, p.first);
+        _pos.second = fields.resolve("part.pos", s, p.second);
     }
-    s = vm["part.sub-chunk"].as<std::string>();
-    _subChunkIdField = fields.resolve("part.sub-chunk", s);
+    if (vm.count("part.id") != 0) {
+        _idFieldName = vm["part.id"].as<std::string>();
+        _idField = fields.resolve("part.id", _idFieldName);
+    }
+    _chunkIdFieldName = vm["part.chunk"].as<std::string>();
+    _chunkIdField = fields.resolve("part.chunk", _chunkIdFieldName);
+    _subChunkIdFieldName = vm["part.sub-chunk"].as<std::string>();
+    _subChunkIdField = fields.resolve("part.sub-chunk", _subChunkIdFieldName);
+    // Create or open the "secondary" index (if required)
+    if (_pos.first == -1) {
+        // The objectID partitioning requires the input "secondary" index to exist
+        std::string const url = vm["part.id-url"].as<std::string>();
+        if (url.empty()) {
+            throw std::runtime_error("Secondary index URL --part.id-url was not specified.");
+        }
+        ObjectIndex::instance().open(url, _editor.getOutputDialect());
+    } else {
+        // The RA/DEC partitioning will create and populate the "secondary" index if requested
+        if (_idField != -1) {
+            fs::path const outdir = vm["out.dir"].as<std::string>();
+            fs::path const indexpath = outdir / (vm["part.prefix"].as<std::string>() + "_object_index.txt");
+            ObjectIndex::instance().create(indexpath.string(), _editor, _idFieldName, _chunkIdFieldName, _subChunkIdFieldName);
+        }
+    }
 }
 
 void Worker::map(char const * const begin,
@@ -99,16 +127,36 @@ void Worker::map(char const * const begin,
     char const * cur = begin;
     while (cur < end) {
         cur = _editor.readRecord(cur, end);
-        sc.first = _editor.get<double>(_pos.first);
-        sc.second = _editor.get<double>(_pos.second);
-        // Locate partitioning position and output a record for each location.
-        _locations.clear();
-        _chunker.locate(sc, -1, _locations);
-        assert(!_locations.empty());
-        for (LocIter i = _locations.begin(), e = _locations.end(); i != e; ++i) {
-            _editor.set(_chunkIdField, i->chunkId);
-            _editor.set(_subChunkIdField, i->subChunkId);
-            silo.add(*i, _editor);
+        if (_pos.first != -1) {
+            // RA/DEC partitioning for the director or child tables. Allowing overlaps and
+            // the "secondary" index generation (if requested).
+            sc.first = _editor.get<double>(_pos.first);
+            sc.second = _editor.get<double>(_pos.second);
+            // Locate partitioning position and output a record for each location.
+            _locations.clear();
+            _chunker.locate(sc, -1, _locations);
+            assert(!_locations.empty());
+            for (LocIter i = _locations.begin(), e = _locations.end(); i != e; ++i) {
+                _editor.set(_chunkIdField, i->chunkId);
+                _editor.set(_subChunkIdField, i->subChunkId);
+                if (!_disableChunks) silo.add(*i, _editor);
+                // Populate the "secondary" index only for the non-overlap rows.
+                if (_idField != -1 && !i->overlap) {
+                    ObjectIndex::instance().write(_editor.get(_idField, true), *i);
+                }
+            }
+        } else if (_idField != -1) {
+            // The objectId partitioning mode of a child table based on an existing
+            // "secondary" index for the FK to the corresponding "director" table.
+            auto const chunkSubChunk = ObjectIndex::instance().read(_editor.get(_idField, true));
+            int32_t const chunkId = chunkSubChunk.first;
+            int32_t const subChunkId = chunkSubChunk.second;
+            ChunkLocation location(chunkId, subChunkId, false);
+            _editor.set(_chunkIdField, chunkId);
+            _editor.set(_subChunkIdField, subChunkId);
+            if (!_disableChunks) silo.add(location, _editor);
+        } else {
+            throw std::logic_error("Neither --part.pos not --part.id option were specified.");
         }
     }
 }
@@ -125,12 +173,23 @@ void Worker::defineOptions(po::options_description & opts) {
          "to the output field name list if it isn't already included.")
         ("part.sub-chunk",
          po::value<std::string>()->default_value("subChunkId"),
-         "Sub-chunk ID output field name. This field field name is appended "
+         "Sub-chunk ID output field name. This field name is appended "
          "to the output field name list if it isn't already included.")
+        ("part.id",
+         po::value<std::string>(),
+         "The name of a field which has an object identifier. If it's provided then"
+         "then the secondary index will be open or created.")
         ("part.pos",
          po::value<std::string>(),
          "The partitioning longitude and latitude angle field names, "
-         "separated by a comma.");
+         "separated by a comma.")
+        ("part.id-url",
+         po::value<std::string>(),
+         "Universal resource locator for an existing secondary index.")
+        ("part.disable-chunks",
+         "This flag if present would disable making chunk files in the output folder. "
+         "It's meant to run the tool in the 'dry run' mode, validating input files, "
+         "generating the objectId-to-chunk/sub-chunk index map.");
     Chunker::defineOptions(part);
     opts.add(part);
     defineOutputOptions(opts);
@@ -173,6 +232,7 @@ int main(int argc, char const * const * argv) {
         part::PartitionJob job(vm);
         boost::shared_ptr<part::ChunkIndex> index =
             job.run(part::makeInputLines(vm));
+        part::ObjectIndex::instance().close();
         if (!index->empty()) {
             fs::path d(vm["out.dir"].as<std::string>());
             fs::path f = vm["part.prefix"].as<std::string>() + "_index.bin";
