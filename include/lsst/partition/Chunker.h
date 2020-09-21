@@ -54,12 +54,18 @@ double segmentWidth(double latMin, double latMax, int numSegments);
 
 
 /// A chunk location for a position on the sky.
-struct ChunkLocation {
-    int32_t chunkId;
-    int32_t subChunkId;
-    bool overlap;
+class ChunkLocation {
+public:
+    int32_t chunkId = -1;
+    int32_t subChunkId = -1;
+    bool overlap = false;
 
-    ChunkLocation() : chunkId(-1), subChunkId(-1), overlap(false) { }
+    ChunkLocation() = default;
+    ChunkLocation(ChunkLocation const&) = default;
+    ChunkLocation& operator=(ChunkLocation const&) = default;
+
+    ChunkLocation(int32_t chunkId_, int32_t subChunkId_, bool overlap_) 
+        : chunkId(chunkId_), subChunkId(subChunkId_), overlap(overlap_) {}
 
     /// Hash chunk locations by chunk ID.
     uint32_t hash() const { return partition::hash(static_cast<uint32_t>(chunkId)); }

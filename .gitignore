@@ -8,11 +8,7 @@ core.*
 .sconf_temp
 .sconsign.dblite
 config.log
-bin/sph-duplicate
-bin/sph-estimate-stats
-bin/sph-htm-index
-bin/sph-partition-matches
-bin/sph-partition
+bin/sph-*
 python/lsst/partition/version.py
 tests/.tests/
 tests/chunkIndex
@@ -21,5 +17,6 @@ tests/fileUtils
 tests/geometry
 tests/htmIndex
 tests/mapReduce
+tests/objectIndex
 tests/vector
 ups/*.cfgc
