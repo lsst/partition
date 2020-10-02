@@ -42,6 +42,10 @@
 
 #include "Constants.h"
 
+namespace lsst {
+namespace partition {
+    class ConfigStore;
+}} // namespace lsst::partition
 
 namespace lsst {
 namespace partition {
@@ -112,7 +116,7 @@ public:
     /// Build a dialect from configuration variables with names given by the
     /// concatenation of prefix and "null", "delimiter", "escape",
     /// "no-escape", "quote" and "no-quote".
-    Dialect(boost::program_options::variables_map const & vm,
+    Dialect(ConfigStore const & config,
             std::string const & prefix);
 
     Dialect(Dialect const & dialect);
@@ -228,7 +232,7 @@ public:
            std::vector<std::string> const & inputFieldNames,
            std::vector<std::string> const & outputFieldNames);
 
-    Editor(boost::program_options::variables_map const & vm);
+    Editor(ConfigStore const & config);
 
     ~Editor();
 

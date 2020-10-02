@@ -42,9 +42,10 @@
 #include "boost/shared_ptr.hpp"
 #include "boost/thread.hpp"
 
-#include "Constants.h"
-#include "Csv.h"
-#include "InputLines.h"
+#include "lsst/partition/ConfigStore.h"
+#include "lsst/partition/Constants.h"
+#include "lsst/partition/Csv.h"
+#include "lsst/partition/InputLines.h"
 
 
 namespace lsst {
@@ -294,7 +295,7 @@ template <typename K> void Silo<K>::_grow() {
 ///
 /// A worker implementation need not be copy-constructible or assignable. It
 /// must however provide a constructor taking a
-/// `boost::program_options::variables_map const &`, as well as:
+/// `ConfigStore const &`, as well as:
 ///
 ///     static void defineOptions(boost::program_options::options_description & opts)
 ///
@@ -351,7 +352,7 @@ namespace detail {
     public:
         typedef WorkerT Worker;
 
-        JobBase(boost::program_options::variables_map const & vm);
+        JobBase(ConfigStore const & config);
         ~JobBase();
 
         void run(InputLines input);
@@ -376,7 +377,7 @@ namespace detail {
         typedef detail::SiloPtrCmp<Key> SiloPtrCmp;
         typedef typename std::vector<SiloPtr>::const_iterator SiloPtrIter;
 
-        boost::program_options::variables_map const * _vm;
+        ConfigStore const * _config;
 
         InputLines _input;
         size_t _threshold;
@@ -406,10 +407,10 @@ namespace detail {
 
     template <typename DerivedT, typename WorkerT>
     JobBase<DerivedT, WorkerT>::JobBase(
-        boost::program_options::variables_map const & vm
-    ) : _vm(&vm),
+        ConfigStore const & config
+    ) : _config(&config),
         _threshold(0),
-        _numWorkers(vm["mr.num-workers"].as<uint32_t>()),
+        _numWorkers(config.get<uint32_t>("mr.num-workers")),
         _inputExhausted(false),
         _numMappers(0),
         _numReducers(0),
@@ -419,7 +420,7 @@ namespace detail {
             throw std::runtime_error("The number of worker threads given by "
                                      "--mr.num-workers must be at least 1");
         }
-        size_t poolSize = vm["mr.pool-size"].as<size_t>();
+        size_t poolSize = config.get<size_t>("mr.pool-size");
         _threshold = (poolSize*MiB) / _numWorkers;
     }
 
@@ -536,7 +537,7 @@ namespace detail {
         std::vector<SortedRecordRange> ranges;
         ranges.reserve(_numWorkers);
         // BEWARE: a lock on _mutex is held while constructing Worker.
-        // This is because _vm contains strings and the current GCC libstc++
+        // This is because _config contains strings and the current GCC libstc++
         // basic_string doesn't seem to allow multiple threads to safely read
         // a shared const string concurrently without locking. Double frees
         // coming from ~basic_string (and other other heap corruptions) have
@@ -546,7 +547,7 @@ namespace detail {
         //
         // for details on what I think may be the root cause.
         boost::unique_lock<boost::mutex> lock(_mutex);
-        Worker worker(*_vm);
+        Worker worker(*_config);
         // Get a rank in [0, _numWorkers) for this thread.
         uint32_t const rank = _numMappers;
         ++_numMappers;
@@ -680,8 +681,8 @@ namespace detail {
         friend class JobBase<JobImpl<WorkerT, ResultT>, WorkerT>;
 
     public:
-        explicit JobImpl(boost::program_options::variables_map const & vm) :
-            Base(vm) { }
+        explicit JobImpl(ConfigStore const & config) :
+            Base(config) { }
 
         boost::shared_ptr<ResultT> const run(InputLines input) {
             try {
@@ -709,8 +710,8 @@ namespace detail {
         friend class JobBase<JobImpl<WorkerT, void>, WorkerT>;
 
     public:
-        explicit JobImpl(boost::program_options::variables_map const & vm) :
-            Base(vm) { }
+        explicit JobImpl(ConfigStore const & config) :
+            Base(config) { }
 
         void run(InputLines input) { Base::run(input); }
 
@@ -738,12 +739,12 @@ namespace detail {
 ///
 /// The design is targeted at command line applications, which
 /// is why job and worker classes must be constructible from a
-/// `boost::program_options::variables_map`.
+/// `ConfigStore`.
 template <typename WorkerT>
 class Job : public detail::JobImpl<WorkerT, typename WorkerT::Result> {
 public:
-    explicit Job(boost::program_options::variables_map const & vm) :
-        detail::JobImpl<WorkerT, typename WorkerT::Result>(vm) { }
+    explicit Job(ConfigStore const & config) :
+        detail::JobImpl<WorkerT, typename WorkerT::Result>(config) { }
 };
 
 }} // namespace lsst::partition

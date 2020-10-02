@@ -26,13 +26,17 @@
 #include <stdint.h>
 
 #include "boost/filesystem/path.hpp"
-#include "boost/program_options.hpp"
 #include "boost/shared_ptr.hpp"
 
 #include "Chunker.h"
 #include "ChunkIndex.h"
 #include "FileUtils.h"
 #include "MapReduce.h"
+
+namespace lsst {
+namespace partition {
+    class ConfigStore;
+}} // namespace lsst::partition
 
 namespace lsst {
 namespace partition {
@@ -50,7 +54,7 @@ namespace partition {
 /// counts.
 class ChunkReducer : public WorkerBase<ChunkLocation, ChunkIndex> {
 public:
-    ChunkReducer(boost::program_options::variables_map const & vm);
+    ChunkReducer(ConfigStore const & config);
 
     void reduce(RecordIter const begin, RecordIter const end);
     void finish();

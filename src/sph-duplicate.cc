@@ -39,6 +39,7 @@
 #include "lsst/partition/Chunker.h"
 #include "lsst/partition/ChunkReducer.h"
 #include "lsst/partition/CmdLineUtils.h"
+#include "lsst/partition/ConfigStore.h"
 #include "lsst/partition/Csv.h"
 #include "lsst/partition/Geometry.h"
 #include "lsst/partition/HtmIndex.h"
@@ -58,7 +59,7 @@ class Duplicator {
 public:
     Duplicator() : _blockSize(0), _level(-1) { }
 
-    boost::shared_ptr<ChunkIndex> const run(po::variables_map const & vm);
+    boost::shared_ptr<ChunkIndex> const run(ConfigStore const & config);
 
 private:
     // A list of (HTM triangle, chunk ID) pairs.
@@ -197,7 +198,7 @@ void LessThanCounter::setup(HtmIndex const & index,
 /// Map-reduce worker class for the duplicator.
 class Worker : public ChunkReducer {
 public:
-    Worker(po::variables_map const & vm);
+    Worker(ConfigStore const & config);
 
     void map(char const * const begin, char const * const end, Silo & silo);
 
@@ -265,9 +266,9 @@ private:
     boost::shared_ptr<LessThanCounter> _idsLessThan;
 };
 
-Worker::Worker(po::variables_map const & vm) :
-    ChunkReducer(vm),
-    _editor(vm),
+Worker::Worker(ConfigStore const & config) :
+    ChunkReducer(config),
+    _editor(config),
     _partPos(),
     _sourceHtmId(0),
     _level(dup()._index->getLevel()),
@@ -282,8 +283,8 @@ Worker::Worker(po::variables_map const & vm) :
     typedef std::vector<std::string>::const_iterator StringIter;
 
     // Extract sampling fraction as well as PNRG seed.
-    _seed = vm["sample.seed"].as<uint64_t>();
-    double d = vm["sample.fraction"].as<double>();
+    _seed = config.get<uint64_t>("sample.seed");
+    double d = config.get<double>("sample.fraction");
     if (d <= 0.0 || d > 1.0) {
         throw std::runtime_error("The --sample.fraction option value "
                                  "must be in the range (0, 1].");
@@ -294,15 +295,15 @@ Worker::Worker(po::variables_map const & vm) :
         _maxId = static_cast<uint64_t>(std::ldexp(d, 64));
     }
     // Map partitioning position field names to field indexes.
-    if (vm.count("part.pos") == 0) {
+    if (!config.has("part.pos")) {
         throw std::runtime_error("The --part.pos option was not specified.");
     }
     FieldNameResolver fields(_editor);
-    std::string s = vm["part.pos"].as<std::string>();
+    std::string s = config.get<std::string>("part.pos");
     std::pair<std::string, std::string> p = parseFieldNamePair("part.pos", s);
     _partPos.lon = fields.resolve("part.pos", s, p.first);
     _partPos.lat = fields.resolve("part.pos", s, p.second);
-    if (vm.count("pos") != 0) {
+    if (config.has("pos")) {
         // Map non-partitioning position field names to field indexes.
         //
         // For example, a single-exposure Source record might contain both
@@ -311,22 +312,20 @@ Worker::Worker(po::variables_map const & vm) :
         // is identified as a position with --pos, it too is subjected to the
         // transformations that map (partitioningRa, partitioningDec) from
         // source to target HTM triangles.
-        std::vector<std::string> const & pos =
-            vm["pos"].as<std::vector<std::string> >();
-        for (StringIter i = pos.begin(), e = pos.end(); i != e; ++i) {
-            p = parseFieldNamePair("pos", *i);
-            _pos.push_back(Pos(fields.resolve("pos", *i, p.first),
-                               fields.resolve("pos", *i, p.second)));
+        for (auto&& s: config.get<std::vector<std::string>>("pos")) {
+            p = parseFieldNamePair("pos", s);
+            _pos.push_back(Pos(fields.resolve("pos", s, p.first),
+                               fields.resolve("pos", s, p.second)));
         }
     }
-    // Opionally map primary and secondary key field names to field indexes.
-    if (vm.count("id") != 0) {
-        s = vm["id"].as<std::string>();
+    // Optionally map primary and secondary key field names to field indexes.
+    if (config.has("id")) {
+        s = config.get<std::string>("id");
         _idField = fields.resolve("id", s);
     }
-    if (vm.count("part.id") != 0) {
-        s = vm["part.id"].as<std::string>();
-        _partIdField = fields.resolve("part.id", s, vm.count("id") == 0);
+    if (config.has("part.id")) {
+        s = config.get<std::string>("part.id");
+        _partIdField = fields.resolve("part.id", s, !config.has("id"));
     }
     if (_partIdField >= 0) {
         _partIdsLessThan.reset(new LessThanCounter());
@@ -337,11 +336,11 @@ Worker::Worker(po::variables_map const & vm) :
         _idsLessThan = _partIdsLessThan;
     }
     // Map chunk and sub-chunk ID field names to field indexes.
-    if (vm.count("part.chunk") != 0) {
-        s = vm["part.chunk"].as<std::string>();
+    if (config.has("part.chunk")) {
+        s = config.get<std::string>("part.chunk");
         _chunkIdField = fields.resolve("part.chunk", s);
     }
-    s = vm["part.sub-chunk"].as<std::string>();
+    s = config.get<std::string>("part.sub-chunk");
     _subChunkIdField = fields.resolve("part.sub-chunk", s);
 }
 
@@ -569,26 +568,26 @@ typedef Job<Worker> DuplicateJob;
 
 
 boost::shared_ptr<ChunkIndex> const Duplicator::run(
-    po::variables_map const & vm)
+    ConfigStore const & config)
 {
     // Initialize state.
-    boost::shared_ptr<Chunker> chunker(new Chunker(vm));
-    std::vector<int32_t> chunks = chunksToDuplicate(*chunker, vm);
+    boost::shared_ptr<Chunker> chunker(new Chunker(config));
+    std::vector<int32_t> chunks = chunksToDuplicate(*chunker, config);
     _chunker.swap(chunker);
-    DuplicateJob job(vm);
+    DuplicateJob job(config);
     boost::shared_ptr<ChunkIndex> chunkIndex;
-    if (vm.count("id") == 0 && vm.count("part.id") == 0) {
+    if (!config.has("id") && !config.has("part.id")) {
         throw std::runtime_error("One or both of the --id and --part.id "
                                  "options must be specified.");
     }
-    if (vm.count("index") == 0 && vm.count("part.index") == 0) {
+    if (!config.flag("index") && !config.flag("part.index")) {
         throw std::runtime_error("One or both of the --index and --part.index "
                                  "options must be specified.");
     }
-    char const * opt = (vm.count("index") != 0 ? "index" : "part.index");
-    fs::path indexPath(vm[opt].as<std::string>());
-    opt = (vm.count("part.index") != 0 ? "part.index" : "index");
-    fs::path partIndexPath(vm[opt].as<std::string>());
+    char const * opt = (config.flag("index") ? "index" : "part.index");
+    fs::path indexPath(config.get<std::string>(opt));
+    opt = (config.flag("part.index") ? "part.index" : "index");
+    fs::path partIndexPath(config.get<std::string>(opt));
     _index.reset(new HtmIndex(indexPath));
     if (partIndexPath != indexPath) {
         _partIndex.reset(new HtmIndex(partIndexPath));
@@ -603,13 +602,13 @@ boost::shared_ptr<ChunkIndex> const Duplicator::run(
     _level = _index->getLevel();
     _indexDir = indexPath.parent_path();
     _partIndexDir = partIndexPath.parent_path();
-    _blockSize = vm["mr.block-size"].as<size_t>();
+    _blockSize = config.get<size_t>("mr.block-size");
     if (_blockSize == 0 || _blockSize > 1024) {
         throw std::runtime_error("--mr.block-size must be between "
                                  "1 and 1024 MiB.");
     }
     // Generate data for numWorkers chunks at a time.
-    uint32_t const numWorkers = vm["mr.num-workers"].as<uint32_t>();
+    uint32_t const numWorkers = config.get<uint32_t>("mr.num-workers");
     uint32_t n = numWorkers;
     while (!chunks.empty()) {
         _makeTargets(chunks.back());
@@ -644,18 +643,17 @@ int main(int argc, char const * const * argv) {
     try {
         po::options_description options;
         part::DuplicateJob::defineOptions(options);
-        po::variables_map vm;
-        part::parseCommandLine(vm, options, argc, argv, help);
-        part::ensureOutputFieldExists(vm, "part.chunk");
-        part::ensureOutputFieldExists(vm, "part.sub-chunk");
-        part::makeOutputDirectory(vm, true);
-        boost::shared_ptr<part::ChunkIndex> index = part::duplicator.run(vm);
+        part::ConfigStore config = part::parseCommandLine(options, argc, argv, help);
+        part::ensureOutputFieldExists(config, "part.chunk");
+        part::ensureOutputFieldExists(config, "part.sub-chunk");
+        part::makeOutputDirectory(config, true);
+        boost::shared_ptr<part::ChunkIndex> index = part::duplicator.run(config);
         if (!index->empty()) {
-            fs::path d(vm["out.dir"].as<std::string>());
-            fs::path f = vm["part.prefix"].as<std::string>() + "_index.bin";
+            fs::path d(config.get<std::string>("out.dir"));
+            fs::path f = config.get<std::string>("part.prefix") + "_index.bin";
             index->write(d / f, false);
         }
-        if (vm.count("verbose") != 0) {
+        if (config.flag("verbose")) {
             index->write(std::cout, 0);
             std::cout << std::endl;
         } else {

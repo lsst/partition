@@ -39,6 +39,7 @@
 #include "lsst/partition/Chunker.h"
 #include "lsst/partition/ChunkReducer.h"
 #include "lsst/partition/CmdLineUtils.h"
+#include "lsst/partition/ConfigStore.h"
 #include "lsst/partition/Csv.h"
 #include "lsst/partition/ObjectIndex.h"
 
@@ -50,7 +51,7 @@ namespace partition {
 
 class Worker : public ChunkReducer {
 public:
-    Worker(po::variables_map const & vm);
+    Worker(ConfigStore const & config);
 
     /// Compute all partitioning locations of each input
     /// record and store an output record per-location.
@@ -72,38 +73,38 @@ private:
     bool _disableChunks;
 };
 
-Worker::Worker(po::variables_map const & vm) :
-    ChunkReducer(vm),
-    _editor(vm),
+Worker::Worker(ConfigStore const & config) :
+    ChunkReducer(config),
+    _editor(config),
     _pos(-1, -1),
     _idField(-1),
     _chunkIdField(-1),
     _subChunkIdField(-1),
-    _chunker(vm),
-    _disableChunks(vm.count("part.disable-chunks") != 0)
+    _chunker(config),
+    _disableChunks(config.flag("part.disable-chunks"))
 {
-    if (vm.count("part.pos") == 0 && vm.count("part.id") == 0) {
+    if (!config.has("part.pos") && !config.has("part.id")) {
         throw std::runtime_error("Neither --part.pos not --part.id option were specified.");
     }
     FieldNameResolver fields(_editor);
-    if (vm.count("part.pos") != 0) {
-        std::string s = vm["part.pos"].as<std::string>();
-        std::pair<std::string, std::string> p = parseFieldNamePair("part.pos", s);
+    if (config.has("part.pos")) {
+        std::string const s = config.get<std::string>("part.pos");
+        std::pair<std::string, std::string> const p = parseFieldNamePair("part.pos", s);
         _pos.first = fields.resolve("part.pos", s, p.first);
         _pos.second = fields.resolve("part.pos", s, p.second);
     }
-    if (vm.count("part.id") != 0) {
-        _idFieldName = vm["part.id"].as<std::string>();
+    if (config.has("part.id")) {
+        _idFieldName = config.get<std::string>("part.id");
         _idField = fields.resolve("part.id", _idFieldName);
     }
-    _chunkIdFieldName = vm["part.chunk"].as<std::string>();
+    _chunkIdFieldName = config.get<std::string>("part.chunk");
     _chunkIdField = fields.resolve("part.chunk", _chunkIdFieldName);
-    _subChunkIdFieldName = vm["part.sub-chunk"].as<std::string>();
+    _subChunkIdFieldName = config.get<std::string>("part.sub-chunk");
     _subChunkIdField = fields.resolve("part.sub-chunk", _subChunkIdFieldName);
     // Create or open the "secondary" index (if required)
     if (_pos.first == -1) {
         // The objectID partitioning requires the input "secondary" index to exist
-        std::string const url = vm["part.id-url"].as<std::string>();
+        std::string const url = config.get<std::string>("part.id-url");
         if (url.empty()) {
             throw std::runtime_error("Secondary index URL --part.id-url was not specified.");
         }
@@ -111,8 +112,8 @@ Worker::Worker(po::variables_map const & vm) :
     } else {
         // The RA/DEC partitioning will create and populate the "secondary" index if requested
         if (_idField != -1) {
-            fs::path const outdir = vm["out.dir"].as<std::string>();
-            fs::path const indexpath = outdir / (vm["part.prefix"].as<std::string>() + "_object_index.txt");
+            fs::path const outdir = config.get<std::string>("out.dir");
+            fs::path const indexpath = outdir / (config.get<std::string>("part.prefix") + "_object_index.txt");
             ObjectIndex::instance().create(indexpath.string(), _editor, _idFieldName, _chunkIdFieldName, _subChunkIdFieldName);
         }
     }
@@ -224,21 +225,20 @@ int main(int argc, char const * const * argv) {
     try {
         po::options_description options;
         part::PartitionJob::defineOptions(options);
-        po::variables_map vm;
-        part::parseCommandLine(vm, options, argc, argv, help);
-        part::ensureOutputFieldExists(vm, "part.chunk");
-        part::ensureOutputFieldExists(vm, "part.sub-chunk");
-        part::makeOutputDirectory(vm, true);
-        part::PartitionJob job(vm);
+        part::ConfigStore config = part::parseCommandLine(options, argc, argv, help);
+        part::ensureOutputFieldExists(config, "part.chunk");
+        part::ensureOutputFieldExists(config, "part.sub-chunk");
+        part::makeOutputDirectory(config, true);
+        part::PartitionJob job(config);
         boost::shared_ptr<part::ChunkIndex> index =
-            job.run(part::makeInputLines(vm));
+            job.run(part::makeInputLines(config));
         part::ObjectIndex::instance().close();
         if (!index->empty()) {
-            fs::path d(vm["out.dir"].as<std::string>());
-            fs::path f = vm["part.prefix"].as<std::string>() + "_index.bin";
+            fs::path d(config.get<std::string>("out.dir"));
+            fs::path f = config.get<std::string>("part.prefix") + "_index.bin";
             index->write(d / f, false);
         }
-        if (vm.count("verbose") != 0) {
+        if (config.flag("verbose")) {
             index->write(std::cout, 0);
             std::cout << std::endl;
         } else {

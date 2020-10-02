@@ -61,6 +61,7 @@
 #include "lsst/partition/Chunker.h"
 #include "lsst/partition/ChunkIndex.h"
 #include "lsst/partition/CmdLineUtils.h"
+#include "lsst/partition/ConfigStore.h"
 #include "lsst/partition/Csv.h"
 #include "lsst/partition/FileUtils.h"
 #include "lsst/partition/MapReduce.h"
@@ -87,7 +88,7 @@ namespace partition {
 /// record count for each chunk and sub-chunk seen by that worker.
 class Worker : public WorkerBase<ChunkLocation, ChunkIndex> {
 public:
-    Worker(po::variables_map const & vm);
+    Worker(ConfigStore const & config);
 
     void map(char const * const begin, char const * const end, Silo & silo);
     void reduce(RecordIter const begin, RecordIter const end);
@@ -115,46 +116,46 @@ private:
     BufferedAppender _chunk;
 };
 
-Worker::Worker(po::variables_map const & vm) :
-    _editor(vm),
+Worker::Worker(ConfigStore const & config) :
+    _editor(config),
     _pos1(-1, -1),
     _pos2(-1, -1),
     _chunkIdField(-1),
     _subChunkIdField(-1),
     _flagsField(-1),
-    _chunker(vm),
+    _chunker(config),
     _index(boost::make_shared<ChunkIndex>()),
     _chunkId(-1),
-    _numNodes(vm["out.num-nodes"].as<uint32_t>()),
-    _outputDir(vm["out.dir"].as<std::string>().c_str()),  // defend against GCC PR21334
-    _prefix(vm["part.prefix"].as<std::string>().c_str()), // defend against GCC PR21334
-    _chunk(vm["mr.block-size"].as<size_t>()*MiB)
+    _numNodes(config.get<uint32_t>("out.num-nodes")),
+    _outputDir(config.get<std::string>("out.dir").c_str()),  // defend against GCC PR21334
+    _prefix(config.get<std::string>("part.prefix").c_str()), // defend against GCC PR21334
+    _chunk(config.get<size_t>("mr.block-size")*MiB)
 {
     if (_numNodes == 0 || _numNodes > 99999u) {
         throw std::runtime_error("The --out.num-nodes option value must be "
                                  "between 1 and 99999.");
     }
     // Map field names of interest to field indexes.
-    if (vm.count("part.pos1") == 0 || vm.count("part.pos2") == 0) {
+    if (!config.has("part.pos1") || !config.has("part.pos2")) {
         throw std::runtime_error("The --part.pos1 and/or --part.pos2 "
                                  "option was not specified.");
     }
     FieldNameResolver fields(_editor);
-    std::string s = vm["part.pos1"].as<std::string>();
+    std::string s = config.get<std::string>("part.pos1");
     std::pair<std::string, std::string> p = parseFieldNamePair("part.pos1", s);
     _pos1.first = fields.resolve("part.pos1", s, p.first);
     _pos1.second = fields.resolve("part.pos1", s, p.second);
-    s = vm["part.pos2"].as<std::string>();
+    s = config.get<std::string>("part.pos2");
     p = parseFieldNamePair("part.pos2", s);
     _pos2.first = fields.resolve("part.pos2", s, p.first);
     _pos2.second = fields.resolve("part.pos2", s, p.second);
-    if (vm.count("part.chunk") != 0) {
-        s = vm["part.chunk"].as<std::string>();
+    if (config.has("part.chunk")) {
+        s = config.get<std::string>("part.chunk");
         _chunkIdField = fields.resolve("part.chunk", s);
     }
-    s = vm["part.sub-chunk"].as<std::string>();
+    s = config.get<std::string>("part.sub-chunk");
     _subChunkIdField = fields.resolve("part.sub-chunk", s);
-    s = vm["part.flags"].as<std::string>();
+    s = config.get<std::string>("part.flags");
     _flagsField = fields.resolve("part.flags", s);
 }
 
@@ -317,21 +318,20 @@ int main(int argc, char const * const * argv) {
     try {
         po::options_description options;
         part::PartitionMatchesJob::defineOptions(options);
-        po::variables_map vm;
-        part::parseCommandLine(vm, options, argc, argv, help);
-        part::ensureOutputFieldExists(vm, "part.chunk");
-        part::ensureOutputFieldExists(vm, "part.sub-chunk");
-        part::ensureOutputFieldExists(vm, "part.flags");
-        part::makeOutputDirectory(vm, true);
-        part::PartitionMatchesJob job(vm);
+        part::ConfigStore config = part::parseCommandLine(options, argc, argv, help);
+        part::ensureOutputFieldExists(config, "part.chunk");
+        part::ensureOutputFieldExists(config, "part.sub-chunk");
+        part::ensureOutputFieldExists(config, "part.flags");
+        part::makeOutputDirectory(config, true);
+        part::PartitionMatchesJob job(config);
         boost::shared_ptr<part::ChunkIndex> index =
-            job.run(part::makeInputLines(vm));
+            job.run(part::makeInputLines(config));
         if (!index->empty()) {
-            fs::path d(vm["out.dir"].as<std::string>());
-            fs::path f = vm["part.prefix"].as<std::string>() + "_index.bin";
+            fs::path d(config.get<std::string>("out.dir"));
+            fs::path f = config.get<std::string>("part.prefix") + "_index.bin";
             index->write(d / f, false);
         }
-        if (vm.count("verbose") != 0) {
+        if (config.flag("verbose")) {
             index->write(std::cout, 0);
             std::cout << std::endl;
         } else {

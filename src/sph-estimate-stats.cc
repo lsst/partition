@@ -36,6 +36,7 @@
 #include "lsst/partition/Chunker.h"
 #include "lsst/partition/ChunkIndex.h"
 #include "lsst/partition/CmdLineUtils.h"
+#include "lsst/partition/ConfigStore.h"
 #include "lsst/partition/Geometry.h"
 #include "lsst/partition/HtmIndex.h"
 
@@ -145,17 +146,17 @@ boost::shared_ptr<ChunkIndex> const estimateStats(
 }
 
 
-boost::shared_ptr<ChunkIndex> const estimateStats(po::variables_map const & vm) {
-    Chunker chunker(vm);
-    if (vm.count("index") == 0 && vm.count("part.index") == 0) {
+boost::shared_ptr<ChunkIndex> const estimateStats(ConfigStore const & config) {
+    Chunker chunker(config);
+    if (!config.flag("index") && !config.flag("part.index")) {
         throw std::runtime_error("One or both of the --index and --part.index "
                                  "options must be specified.");
     }
     // Load HTM indexes
-    char const * opt = (vm.count("index") != 0 ? "index" : "part.index");
-    fs::path indexPath(vm[opt].as<std::string>());
-    opt = (vm.count("part.index") != 0 ? "part.index" : "index");
-    fs::path partIndexPath(vm[opt].as<std::string>());
+    char const * opt = (config.flag("index") ? "index" : "part.index");
+    fs::path indexPath(config.get<std::string>(opt));
+    opt = (config.flag("part.index") ? "part.index" : "index");
+    fs::path partIndexPath(config.get<std::string>(opt));
     boost::shared_ptr<HtmIndex> index(new HtmIndex(indexPath));
     boost::shared_ptr<HtmIndex> partIndex;
     if (partIndexPath != indexPath) {
@@ -168,8 +169,8 @@ boost::shared_ptr<ChunkIndex> const estimateStats(po::variables_map const & vm) 
                                  "and partitioning index (--part.index) do not "
                                  "match.");
     }
-    std::vector<int32_t> chunks = chunksToDuplicate(chunker, vm);
-    if (vm.count("verbose") != 0) {
+    std::vector<int32_t> chunks = chunksToDuplicate(chunker, config);
+    if (config.flag("verbose")) {
         std::cerr << "Processing " << chunks.size() <<" chunks" << std::endl;
     }
     return estimateStats(chunks, chunker, *index, *partIndex);
@@ -189,16 +190,15 @@ int main(int argc, char const * const * argv) {
     try {
         po::options_description options;
         part::defineOptions(options);
-        po::variables_map vm;
-        part::parseCommandLine(vm, options, argc, argv, help);
-        part::makeOutputDirectory(vm, true);
-        boost::shared_ptr<part::ChunkIndex> index = part::estimateStats(vm);
+        part::ConfigStore config = part::parseCommandLine(options, argc, argv, help);
+        part::makeOutputDirectory(config, true);
+        boost::shared_ptr<part::ChunkIndex> index = part::estimateStats(config);
         if (!index->empty()) {
-            fs::path d(vm["out.dir"].as<std::string>());
-            fs::path f = vm["part.prefix"].as<std::string>() + "_index.bin";
+            fs::path d(config.get<std::string>("out.dir"));
+            fs::path f = config.get<std::string>("part.prefix") + "_index.bin";
             index->write(d / f, true);
         }
-        if (vm.count("verbose") != 0) {
+        if (config.flag("verbose")) {
             index->write(std::cout, 0);
             std::cout << std::endl;
         } else {
