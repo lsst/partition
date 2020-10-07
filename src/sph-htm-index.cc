@@ -36,6 +36,7 @@
 #include "boost/shared_ptr.hpp"
 
 #include "lsst/partition/CmdLineUtils.h"
+#include "lsst/partition/ConfigStore.h"
 #include "lsst/partition/Csv.h"
 #include "lsst/partition/FileUtils.h"
 #include "lsst/partition/Geometry.h"
@@ -93,7 +94,7 @@ template <> struct Record<Key> {
 /// and size for each HTM ID seen by that worker.
 class Worker : public WorkerBase<Key, HtmIndex> {
 public:
-    Worker(po::variables_map const & vm);
+    Worker(ConfigStore const & config);
 
     void map(char const * const begin, char const * const end, Silo & silo);
     void reduce(RecordIter const begin, RecordIter const end);
@@ -119,32 +120,32 @@ private:
     BufferedAppender _ids;
 };
 
-Worker::Worker(po::variables_map const & vm) :
-    _editor(vm),
+Worker::Worker(ConfigStore const & config) :
+    _editor(config),
     _idField(-1),
     _pos(-1, -1),
-    _level(vm["htm.level"].as<int>()),
+    _level(config.get<int>("htm.level")),
     _index(boost::make_shared<HtmIndex>(_level)),
     _htmId(0),
     _numRecords(0),
-    _numNodes(vm["out.num-nodes"].as<uint32_t>()),
-    _outputDir(vm["out.dir"].as<std::string>().c_str()), // defend against GCC PR21334
-    _records(vm["mr.block-size"].as<size_t>()*MiB),
-    _ids(vm["mr.block-size"].as<size_t>()*MiB)
+    _numNodes(config.get<uint32_t>("out.num-nodes")),
+    _outputDir(config.get<std::string>("out.dir").c_str()), // defend against GCC PR21334
+    _records(config.get<size_t>("mr.block-size")*MiB),
+    _ids(config.get<size_t>("mr.block-size")*MiB)
 {
     if (_numNodes == 0 || _numNodes > 99999u) {
         throw std::runtime_error("The --out.num-nodes option value must be "
                                  "between 1 and 99999.");
     }
     // Map field names of interest to field indexes.
-    if (vm.count("id") == 0 || vm.count("part.pos") == 0) {
+    if (!config.has("id") || !config.has("part.pos")) {
         throw std::runtime_error("The --id and/or --part.pos "
                                  "option was not specified.");
     }
     FieldNameResolver fields(_editor);
-    std::string s = vm["id"].as<std::string>();
+    std::string s = config.get<std::string>("id");
     _idField = fields.resolve("id", s);
-    s = vm["part.pos"].as<std::string>();
+    s = config.get<std::string>("part.pos");
     std::pair<std::string, std::string> p = parseFieldNamePair("part.pos", s);
     _pos.first = fields.resolve("part.pos", s, p.first);
     _pos.second = fields.resolve("part.pos", s, p.second);
@@ -264,17 +265,16 @@ int main(int argc, char const * const * argv) {
     try {
         po::options_description options;
         part::HtmIndexJob::defineOptions(options);
-        po::variables_map vm;
-        part::parseCommandLine(vm, options, argc, argv, help);
-        part::makeOutputDirectory(vm, true);
-        part::HtmIndexJob job(vm);
+        part::ConfigStore config = part::parseCommandLine(options, argc, argv, help);
+        part::makeOutputDirectory(config, true);
+        part::HtmIndexJob job(config);
         boost::shared_ptr<part::HtmIndex> index =
-            job.run(part::makeInputLines(vm));
+            job.run(part::makeInputLines(config));
         if (!index->empty()) {
-            fs::path d(vm["out.dir"].as<std::string>());
+            fs::path d(config.get<std::string>("out.dir"));
             index->write(d / "htm_index.bin", false);
         }
-        if (vm.count("verbose") != 0) {
+        if (config.flag("verbose")) {
             std::cout << *index << std::endl;
         }
     } catch (std::exception const & ex) {

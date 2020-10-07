@@ -29,345 +29,12 @@
 #include <set>
 #include <vector>
 
+#include "lsst/partition/ConfigStore.h"
 #include "lsst/partition/Constants.h"
 #include "lsst/partition/FileUtils.h"
 
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
-
-
-namespace {
-
-    // A configuration file parser that understands a forgiving format
-    // based on JSON. The parser recognizes JSON, but allows short-cuts
-    // so that configuration files are easier to write.
-    //
-    // This class exists because the INI file parser that ships with boost
-    // has no escaping mechanism and automatically strips whitespace from
-    // option values. As a consequence, setting an option value to e.g.
-    // the TAB character in a config file is impossible with stock boost.
-    //
-    // The format consists of groups, strings, and key-value pairs, where the
-    // configuration file contents belong to an implicit top-level group.
-    // Keys are strings, and values are either strings or groups. A string
-    // does not have to be quoted unless it contains whitespace, escape
-    // sequences, control characters, a leading quote, or one of ",:=#[]{}()".
-    // Both " and ' are recognized as quote characters, and escape sequences
-    // are defined as in JSON.
-    //
-    // Groups contain values and/or key-value pairs (where ':' or '=' separate
-    // keys from values). They are opened with '{', '[' or '(', and closed
-    // with ')', ']' or '}'. Values and key-value pairs may be separated by
-    // whitespace or commas; trailing commas are permitted.
-    //
-    // These structures are mapped to command line options by flattening.
-    // To illustrate:
-    //
-    //     {
-    //         a: {
-    //             b:c,
-    //             d,
-    //         }
-    //     },
-    //     e,
-    //
-    // and
-    //
-    //     a: {b:c d}, e
-    //
-    // and
-    //
-    //     a=(b=c d) e
-    //
-    // are all equivalent to specifying --a.b=c --a=d --e on the command line.
-    // Nested key names are joined by a key-separator character to construct
-    // option names - in this case, '.' is being used.
-    //
-    // The '#' character begins a comment which extends to the end of the line
-    // it occurs on. CR, LF and CRLF are all recognized as line terminators.
-    class Parser {
-    public:
-        explicit Parser(fs::path const & path, char keySeparator);
-        ~Parser();
-
-        po::parsed_options const parse(po::options_description const & desc,
-                                       bool verbose);
-
-    private:
-        Parser(Parser const &);
-        Parser & operator=(Parser const &);
-
-        fs::path _path;
-        char * _data;
-        char const * _cur;
-        char const * _end;
-        char _sep;
-
-        std::string const _join(std::vector<std::string> const & keys);
-        std::string const _parseValue();
-        std::string const _parseQuotedValue(char const quote);
-        std::string const _parseUnicodeEscape();
-
-        void _skipWhitespace() {
-            for (; _cur < _end; ++_cur) {
-                char c = *_cur;
-                if (c != '\t' && c != '\n' && c != '\r' && c != ' ') {
-                    break;
-                }
-            }
-        }
-        void _skipLine() {
-            for (; _cur < _end; ++_cur) {
-                char c = *_cur;
-                if (c == '\r' || c == '\n') {
-                    break;
-                }
-            }
-        }
-    };
-
-    Parser::Parser(fs::path const & path, char keySeparator) :
-        _path(path), _data(0), _cur(0), _end(0), _sep(keySeparator)
-    {
-        lsst::partition::InputFile f(path);
-        // FIXME(smm): check that cast doesn't truncate
-        size_t sz = static_cast<size_t>(f.size());
-        _data = static_cast<char *>(std::malloc(sz));
-        if (!_data) {
-            throw std::bad_alloc();
-        }
-        _cur = _data;
-        _end = _data + sz;
-        f.read(_data, 0, sz);
-    }
-
-    Parser::~Parser() {
-        std::free(_data);
-        _data = 0;
-        _cur = 0;
-        _end = 0;
-    }
-
-    std::string const Parser::_join(std::vector<std::string> const & keys) {
-        typedef std::vector<std::string>::const_iterator Iter;
-        std::string key;
-        for (Iter k = keys.begin(), ke = keys.end(); k != ke; ++k) {
-            if (k->empty()) {
-                continue;
-            }
-            size_t i = k->find_first_not_of(_sep);
-            if (i == std::string::npos) {
-                continue;
-            }
-            size_t j = k->find_last_not_of(_sep);
-            if (!key.empty()) {
-                key.push_back(_sep);
-            }
-            key.append(*k, i, j - i + 1);
-        }
-        return key;
-    }
-
-    std::string const Parser::_parseValue() {
-        std::string val;
-        while (_cur < _end) {
-            char const c = *_cur;
-            switch (c) {
-                case '\t': case '\n': case '\r': case ' ':
-                case '#': case ',': case ':': case '=':
-                case '(': case ')': case '[': case ']': case '{': case '}':
-                    return val;
-                default:
-                    if (c < 0x20) {
-                        throw std::runtime_error("Unquoted values must not "
-                                                 "contain control characters.");
-                    }
-                    break;
-            }
-            val.push_back(c);
-            ++_cur;
-        }
-        return val;
-    }
-
-    std::string const Parser::_parseUnicodeEscape() {
-        std::string val;
-        unsigned int cp = 0;
-        int i = 0;
-        // Extract 1-4 hexadecimal digits to build a Unicode
-        // code-point in the Basic Multilingual Plane.
-        for (; i < 4 && _cur < _end; ++i, ++_cur) {
-            char c = *_cur;
-            if (c >= '0' && c <= '9') {
-                cp = (cp << 4) + static_cast<unsigned int>(c - '0');
-            } else if (c >= 'a' && c <= 'f') {
-                cp = (cp << 4) + static_cast<unsigned int>(c - 'a') + 10u;
-            } else if (c >= 'A' && c <= 'F') {
-                cp = (cp << 4) + static_cast<unsigned int>(c - 'A') + 10u;
-            } else {
-                break;
-            }
-        }
-        if (i == 0) {
-            throw std::runtime_error("Invalid unicode escape in quoted value");
-        }
-        // UTF-8 encode the code-point.
-        if (cp <= 0x7f) {
-            // 0xxxxxxx
-            val.push_back(static_cast<char>(cp));
-        } else if (cp <= 0x7ff) {
-            // 110xxxxx 10xxxxxx
-            val.push_back(static_cast<char>(0xc0 | (cp >> 6)));
-            val.push_back(static_cast<char>(0x80 | (cp & 0x3f)));
-        } else {
-            if (cp <= 0xffff) {
-                throw std::logic_error("Unicode escape sequence produced "
-                                       "code-point outside the Basic "
-                                       "Multilingual Plane");
-            }
-            // 1110xxxx 10xxxxxx 10xxxxxx
-            val.push_back(static_cast<char>(0xe0 | (cp >> 12)));
-            val.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3f)));
-            val.push_back(static_cast<char>(0x80 | (cp & 0x3f)));
-        }
-        return val;
-    }
-
-    std::string const Parser::_parseQuotedValue(char const quote) {
-        std::string val;
-        while (true) {
-            if (_cur >= _end) {
-                throw std::runtime_error("Unmatched quote character.");
-            }
-            char c = *_cur;
-            if (c == quote) {
-                ++_cur;
-                break;
-            } else if (c == '\\') {
-                // Handle escape sequence.
-                ++_cur;
-                if (_cur== _end) {
-                    throw std::runtime_error("Unmatched quote character.");
-                }
-                c = *_cur;
-                switch (c) {
-                    case 'b': c = '\b'; break;
-                    case 'f': c = '\f'; break;
-                    case 'n': c = '\n'; break;
-                    case 'r': c = '\r'; break;
-                    case 't': c = '\t'; break;
-                    case 'u':
-                        ++_cur;
-                        val.append(_parseUnicodeEscape());
-                        continue;
-                    default:
-                        break;
-                }
-            }
-            val.push_back(c);
-            ++_cur;
-        }
-        return val;
-    }
-
-    po::parsed_options const Parser::parse(
-        po::options_description const & desc, bool verbose)
-    {
-        std::set<std::string> registered;
-        for (std::vector<boost::shared_ptr<po::option_description> >::const_iterator i =
-             desc.options().begin(), e = desc.options().end(); i != e; ++i) {
-            if ((*i)->long_name().empty()) {
-                throw std::logic_error(std::string(
-                    "Abbreviated option names are not "
-                    "allowed in configuration files."));
-            }
-            registered.insert((*i)->long_name());
-        }
-        po::parsed_options parsed(&desc);
-        po::option opt;
-        std::vector<std::string> keys;
-        std::vector<std::pair<int, char> > groups;
-        std::pair<int, char> p(0, '\0');
-        groups.push_back(p);
-        int lvl = 0;
-        for (_skipWhitespace(); _cur < _end; _skipWhitespace()) {
-            char c = *_cur;
-            std::string s;
-            switch (c) {
-                case '#':
-                    ++_cur;
-                    _skipLine();
-                    continue;
-                case ',':
-                    ++_cur;
-                    continue;
-                case '(': case '[': case '{':
-                    ++_cur;
-                    groups.push_back(std::pair<int, char>(lvl, c));
-                    continue;
-                case ')': case ']': case '}':
-                    ++_cur;
-                    p = groups.back();
-                    groups.pop_back();
-                    if (p.second == '(' && c != ')') {
-                        throw std::runtime_error("Unmatched (.");
-                    } else if (p.second == '[' && c != ']') {
-                        throw std::runtime_error("Unmatched [.");
-                    } else if (p.second == '{' && c != '}') {
-                        throw std::runtime_error("Unmatched {.");
-                    } else if (p.second == '\0') {
-                        throw std::runtime_error("Unmatched ), ], or }.");
-                    }
-                    for (; lvl > groups.back().first; --lvl) {
-                        keys.pop_back();
-                    }
-                    continue;
-                case '"': case '\'':
-                    ++_cur;
-                    s = _parseQuotedValue(c);
-                    break;
-                default:
-                    s = _parseValue();
-                    break;
-            }
-            _skipWhitespace();
-            c = (_cur < _end) ? *_cur : ',';
-            if (c == ':' || c == '=') {
-                ++_cur;
-                keys.push_back(s);
-                ++lvl;
-                continue;
-            }
-            opt.value.clear();
-            opt.original_tokens.clear();
-            if (keys.empty()) {
-                opt.string_key = s;
-            } else {
-                opt.string_key = _join(keys);
-                opt.value.push_back(s);
-                opt.original_tokens.push_back(opt.string_key);
-            }
-            opt.unregistered =
-                (registered.find(opt.string_key) == registered.end());
-            opt.original_tokens.push_back(s);
-            for (; lvl > groups.back().first; --lvl) {
-                keys.pop_back();
-            }
-            if (opt.unregistered && verbose) {
-                std::cerr << "Skipping unrecognized option --" << opt.string_key
-                          <<  " in config file " << _path.string() << std::endl;
-            }
-            parsed.options.push_back(opt);
-        }
-        if (!keys.empty() || lvl != 0 || groups.size() != 1u) {
-            throw std::runtime_error("Missing value for key, "
-                                     "or unmatched (, [ or {.");
-        }
-        return parsed;
-    }
-
-} // unnamed namespace
-
 
 namespace lsst {
 namespace partition {
@@ -394,12 +61,12 @@ int FieldNameResolver::resolve(std::string const & option,
 }
 
 
-void parseCommandLine(po::variables_map & vm,
-                      po::options_description const & options,
-                      int argc,
-                      char const * const * argv,
-                      char const * help)
+ConfigStore parseCommandLine(po::options_description const & options,
+                             int argc,
+                             char const * const * argv,
+                             char const * help)
 {
+    ConfigStore config;
     // Define common options.
     po::options_description common("\\_____________________ Common", 80);
     common.add_options()
@@ -419,6 +86,7 @@ void parseCommandLine(po::variables_map & vm,
     po::options_description all;
     all.add(common).add(options);
     // Parse command line. Older boost versions (1.41) require the const_cast.
+    po::variables_map vm;
     po::store(po::parse_command_line(argc, const_cast<char **>(argv), all), vm);
     po::notify(vm);
     if (vm.count("help") != 0) {
@@ -426,18 +94,15 @@ void parseCommandLine(po::variables_map & vm,
                   << all << std::endl;
         std::exit(EXIT_SUCCESS);
     }
-    bool verbose = vm.count("verbose") != 0;
     // Parse configuration files, if any.
     if (vm.count("config-file") != 0) {
-        typedef std::vector<std::string>::const_iterator Iter;
-        std::vector<std::string> files =
-            vm["config-file"].as<std::vector<std::string> >();
-        for (Iter f = files.begin(), e = files.end(); f != e; ++f) {
-            Parser p(fs::path(*f), '.');
-            po::store(p.parse(options, verbose), vm);
-            po::notify(vm);
+        for (auto&& f: vm["config-file"].as<std::vector<std::string>>()) {
+            config.parse(f);
         }
     }
+    // Add command-line parameters to the configuration as well
+    config.add(vm);
+    return config;
 }
 
 namespace {
@@ -478,7 +143,7 @@ std::pair<std::string, std::string> const parseFieldNamePair(
 void defineInputOptions(po::options_description & opts) {
     po::options_description input("\\______________________ Input", 80);
     input.add_options()
-        ("in,i", po::value<std::vector<std::string> >(),
+        ("in.path,i", po::value<std::vector<std::string> >(),
          "An input file or directory name. If the name identifies a "
          "directory, then all the files and symbolic links to files in "
          "the directory are treated as inputs. This option must be "
@@ -487,22 +152,20 @@ void defineInputOptions(po::options_description & opts) {
 }
 
 
-InputLines const makeInputLines(po::variables_map & vm) {
+InputLines const makeInputLines(ConfigStore const & config) {
     typedef std::vector<std::string>::const_iterator Iter;
-    size_t blockSize = vm["mr.block-size"].as<size_t>();
+    size_t const blockSize = config.get<size_t>("mr.block-size");
     if (blockSize < 1 || blockSize > 1024) {
         throw std::runtime_error("The IO block size given by --mr.block-size "
                                  "must be between 1 and 1024 MiB.");
     }
-    if (vm.count("in") == 0) {
+    if (!config.has("in.path")) {
         throw std::runtime_error("At least one input file must be provided "
-                                 "using --in.");
+                                 "using --in.path.");
     }
     std::vector<fs::path> paths;
-    std::vector<std::string> const & in =
-        vm["in"].as<std::vector<std::string> >();
-    for (Iter s = in.begin(), se = in.end(); s != se; ++s) {
-        fs::path p(*s);
+    for (auto&& s: config.get<std::vector<std::string>>("in.path")) {
+        fs::path p(s);
         fs::file_status stat = fs::status(p);
         if (stat.type() == fs::regular_file && fs::file_size(p) > 0) {
             paths.push_back(p);
@@ -517,7 +180,7 @@ InputLines const makeInputLines(po::variables_map & vm) {
     }
     if (paths.empty()) {
         throw std::runtime_error("No non-empty input files found among the "
-                                 "files and directories specified via --in.");
+                                 "files and directories specified via --in.path.");
     }
     return InputLines(paths, blockSize*MiB, false);
 }
@@ -538,10 +201,10 @@ void defineOutputOptions(po::options_description & opts) {
 }
 
 
-void makeOutputDirectory(po::variables_map & vm, bool mayExist) {
+void makeOutputDirectory(ConfigStore & config, bool mayExist) {
     fs::path outDir;
-    if (vm.count("out.dir") != 0) {
-        outDir = vm["out.dir"].as<std::string>();
+    if (config.has("out.dir")) {
+        outDir = config.get<std::string>("out.dir");
     }
     if (outDir.empty()) {
         std::cerr << "No output directory specified (use --out.dir)."
@@ -556,9 +219,7 @@ void makeOutputDirectory(po::variables_map & vm, bool mayExist) {
         // exists once it is iterated to.
         outDir.remove_filename();
     }
-    std::map<std::string, po::variable_value> & m = vm;
-    po::variable_value & v = m["out.dir"];
-    v.value() = outDir.string();
+    config.set("out.dir", outDir.string());
     if (fs::create_directories(outDir) == false && !mayExist) {
         std::cerr << "The output directory --out.dir=" << outDir.string()
                   << " already exists - please choose another." << std::endl;
@@ -567,45 +228,43 @@ void makeOutputDirectory(po::variables_map & vm, bool mayExist) {
 }
 
 
-void ensureOutputFieldExists(po::variables_map & vm, std::string const & opt) {
-    if (vm.count(opt) == 0) {
+void ensureOutputFieldExists(ConfigStore & config, std::string const & opt) {
+    if (!config.has(opt)) {
         return;
     }
     std::vector<std::string> names;
-    if (vm.count("out.csv.field") == 0) {
-        if (vm.count("in.csv.field") == 0) {
+    if (!config.has("out.csv.field")) {
+        if (!config.has("in.csv.field")) {
             std::cerr << "Input CSV field names not specified." << std::endl;
             std::exit(EXIT_FAILURE);
         }
-        names = vm["in.csv.field"].as<std::vector<std::string> >();
+        names = config.get<std::vector<std::string>>("in.csv.field");
     } else {
-        names = vm["out.csv.field"].as<std::vector<std::string> >();
+        names = config.get<std::vector<std::string>>("out.csv.field");
     }
-    std::string name = vm[opt].as<std::string>();
+    std::string const name = config.get<std::string>(opt);
     if (std::find(names.begin(), names.end(), name) == names.end()) {
         names.push_back(name);
     }
-    std::map<std::string, po::variable_value> & m = vm;
-    po::variable_value & v = m["out.csv.field"];
-    v.value() = names;
+    config.set("out.csv.field", names);
 }
 
 
 std::vector<int32_t> const chunksToDuplicate(Chunker const & chunker,
-                                             po::variables_map const & vm)
+                                             ConfigStore const & config)
 {
-    if (vm.count("chunk-id") != 0) {
-        return vm["chunk-id"].as<std::vector<int32_t> >();
+    if (config.has("chunk-id")) {
+        return config.get<std::vector<int32_t>>("chunk-id");
     }
-    SphericalBox region(vm["lon-min"].as<double>(),
-                        vm["lon-max"].as<double>(),
-                        vm["lat-min"].as<double>(),
-                        vm["lat-max"].as<double>());
+    SphericalBox region(config.get<double>("lon-min"),
+                        config.get<double>("lon-max"),
+                        config.get<double>("lat-min"),
+                        config.get<double>("lat-max"));
     uint32_t node = 0;
     uint32_t numNodes = 1;
-    if (vm.count("out.node") != 0) {
-        node = vm["out.node"].as<uint32_t>();
-        numNodes = vm["out.num-nodes"].as<uint32_t>();
+    if (config.has("out.node")) {
+        node = config.get<uint32_t>("out.node");
+        numNodes = config.get<uint32_t>("out.num-nodes");
         if (node >= numNodes) {
             std::runtime_error("The --out.node option value "
                                "must be less than --out.num-nodes.");

@@ -37,6 +37,10 @@
 #include "Csv.h"
 #include "InputLines.h"
 
+namespace lsst {
+namespace partition {
+    class ConfigStore;
+}} // namespace lsst::partition
 
 namespace lsst {
 namespace partition {
@@ -71,14 +75,13 @@ private:
 };
 
 /// Parse the given command line according to the options given and store
-/// the results in `vm`. This function defines generic options `help`, `verbose`,
-/// and `config-file`. It handles `help` output and configuration file parsing
-/// for the caller.
-void parseCommandLine(boost::program_options::variables_map & vm,
-                      boost::program_options::options_description const & opts,
-                      int argc,
-                      char const * const * argv,
-                      char const * help);
+/// the results in `config` to be returned by the function. This function
+/// defines generic options `help`, `verbose`, and `config-file`. It handles
+/// `help` output and configuration file parsing for the caller.
+ConfigStore parseCommandLine(boost::program_options::options_description const & opts,
+                             int argc,
+                             char const * const * argv,
+                             char const * help);
 
 /// Parse an option value that contains a comma separated pair of field names,
 /// Leading/trailing whitespace is stripped from each name, and empty names are
@@ -90,25 +93,25 @@ std::pair<std::string, std::string> const parseFieldNamePair(
 void defineInputOptions(boost::program_options::options_description & opts);
 
 /// Construct an InputLines object from input files and/or directories.
-InputLines const makeInputLines(boost::program_options::variables_map & vm);
+InputLines const makeInputLines(ConfigStore const & config);
 
 /// Define the `out.dir` and `out.num-nodes` options.
 void defineOutputOptions(boost::program_options::options_description & opts);
 
 /// Handle output directory checking/creation. Assumes `defineOutputOptions()`
 /// has been used.
-void makeOutputDirectory(boost::program_options::variables_map & vm,
+void makeOutputDirectory(ConfigStore & config,
                          bool mayExist);
 
 /// Ensure that the field name given by the option `opt` is listed as an output
 /// field (in `out.csv.field`) by appending it if necessary.
-void ensureOutputFieldExists(boost::program_options::variables_map & vm,
+void ensureOutputFieldExists(ConfigStore & config,
                              std::string const & opt);
 
 /// Compute the IDs of chunks for which data must be generated, or for which
 /// the record count must be estimated.
 std::vector<int32_t> const chunksToDuplicate(
-    Chunker const & chunker, boost::program_options::variables_map const & vm);
+    Chunker const & chunker, ConfigStore const & config);
 
 }} // namespace lsst::partition
 

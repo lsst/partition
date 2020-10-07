@@ -31,6 +31,8 @@
 #include <stdexcept>
 #include <utility>
 
+#include "lsst/partition/ConfigStore.h"
+
 namespace po = boost::program_options;
 
 
@@ -98,23 +100,23 @@ Dialect::Dialect(std::string const & null,
     _validate();
 }
 
-Dialect::Dialect(po::variables_map const & vm, std::string const & prefix) :
+Dialect::Dialect(ConfigStore const & config, std::string const & prefix) :
     _null(),
     _scanLut(new uint8_t[NUM_CHARS])
 {
-    _delimiter = vm[prefix + "delimiter"].as<char>();
-    if (vm.count(prefix + "no-quote") != 0) {
+    _delimiter = config.get<char>(prefix + "delimiter");
+    if (config.flag(prefix + "no-quote")) {
         _quote = '\0';
     } else {
-        _quote = vm[prefix + "quote"].as<char>();
+        _quote = config.get<char>(prefix + "quote");
     }
-    if (vm.count(prefix + "no-escape") != 0) {
+    if (config.flag(prefix + "no-escape")) {
         _escape = '\0';
     } else {
-        _escape = vm[prefix + "escape"].as<char>();
+        _escape = config.get<char>(prefix + "escape");
     }
-    if (vm.count(prefix + "null") != 0) {
-        _null = vm[prefix + "null"].as<std::string>();
+    if (config.has(prefix + "null")) {
+        _null = config.get<std::string>(prefix + "null");
     } else if (_quote != '\0') {
         _null = "NULL";
     } else if (_escape != '\0') {
@@ -401,30 +403,29 @@ Editor::Editor(Dialect const & inputDialect,
     _initialize(inputFieldNames, outputFieldNames);
 }
 
-Editor::Editor(po::variables_map const & vm) :
-    _inputDialect(vm, "in.csv."),
-    _outputDialect(vm, "out.csv."),
+Editor::Editor(ConfigStore const & config) :
+    _inputDialect(config, "in.csv."),
+    _outputDialect(config, "out.csv."),
     _dialectsMatch(_inputDialect == _outputDialect),
     _fields(),
     _outputs(),
     _fieldMap()
 {
-    if (vm.count("in.csv.field") == 0) {
+    if (!config.has("in.csv.field")) {
         throw std::runtime_error("Input CSV field names not specified.");
     }
-    std::vector<std::string> const * inputFieldNames =
-        &vm["in.csv.field"].as<std::vector<std::string> >();
-    std::vector<std::string> const * outputFieldNames;
-    if (vm.count("out.csv.field") == 0) {
+    std::vector<std::string> const inputFieldNames = config.get<std::vector<std::string>>("in.csv.field");
+    std::vector<std::string> outputFieldNames;
+    if (!config.has("out.csv.field")) {
         outputFieldNames = inputFieldNames;
     } else {
-        outputFieldNames = &vm["out.csv.field"].as<std::vector<std::string> >();
+        outputFieldNames = config.get<std::vector<std::string>>("out.csv.field");
     }
-    _numInputFields = static_cast<int>(inputFieldNames->size());
-    _numOutputFields = static_cast<int>(outputFieldNames->size()),
-    _fields.reset(new Field[inputFieldNames->size() + outputFieldNames->size()]);
-    _outputs.reset(new int[outputFieldNames->size()]);
-    _initialize(*inputFieldNames, *outputFieldNames);
+    _numInputFields = static_cast<int>(inputFieldNames.size());
+    _numOutputFields = static_cast<int>(outputFieldNames.size()),
+    _fields.reset(new Field[inputFieldNames.size() + outputFieldNames.size()]);
+    _outputs.reset(new int[outputFieldNames.size()]);
+    _initialize(inputFieldNames, outputFieldNames);
 }
 
 Editor::~Editor() { }

@@ -28,6 +28,7 @@
 
 #include "boost/make_shared.hpp"
 
+#include "lsst/partition/ConfigStore.h"
 #include "lsst/partition/Hash.h"
 
 namespace fs = boost::filesystem;
@@ -37,14 +38,14 @@ namespace po = boost::program_options;
 namespace lsst {
 namespace partition {
 
-ChunkReducer::ChunkReducer(po::variables_map const & vm) :
+ChunkReducer::ChunkReducer(ConfigStore const & config) :
     _index(boost::make_shared<ChunkIndex>()),
     _chunkId(-1),
-    _numNodes(vm["out.num-nodes"].as<uint32_t>()),
-    _prefix(vm["part.prefix"].as<std::string>().c_str()), // defend against GCC PR21334
-    _outputDir(vm["out.dir"].as<std::string>().c_str()),  // defend against GCC PR21334
-    _chunkAppender(vm["mr.block-size"].as<size_t>()*MiB),
-    _overlapChunkAppender(vm["mr.block-size"].as<size_t>()*MiB)
+    _numNodes(config.get<uint32_t>("out.num-nodes")),
+    _prefix(config.get<std::string>("part.prefix").c_str()), // defend against GCC PR21334
+    _outputDir(config.get<std::string>("out.dir").c_str()),  // defend against GCC PR21334
+    _chunkAppender(config.get<size_t>("mr.block-size")*MiB),
+    _overlapChunkAppender(config.get<size_t>("mr.block-size")*MiB)
 {
     if (_numNodes == 0 || _numNodes > 99999u) {
         throw std::runtime_error("The --out.num-nodes option value must be "

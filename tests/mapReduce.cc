@@ -27,6 +27,7 @@
 #define BOOST_TEST_MODULE MapReduce
 #include "boost/test/unit_test.hpp"
 
+#include "lsst/partition/ConfigStore.h"
 #include "lsst/partition/Csv.h"
 #include "lsst/partition/FileUtils.h"
 #include "lsst/partition/MapReduce.h"
@@ -39,10 +40,11 @@ namespace csv = lsst::partition::csv;
 using std::string;
 using boost::shared_ptr;
 
-using lsst::partition::MiB;
 using lsst::partition::BufferedAppender;
+using lsst::partition::ConfigStore;
 using lsst::partition::InputLines;
 using lsst::partition::Job;
+using lsst::partition::MiB;
 using lsst::partition::WorkerBase;
 
 namespace {
@@ -123,8 +125,8 @@ namespace {
     
     class Worker : public WorkerBase<Key, Lines> {
     public:
-        Worker(po::variables_map const & vm) :
-            _editor(vm), _lines(new Lines()) { }
+        Worker(ConfigStore const & config) :
+            _editor(config), _lines(new Lines()) { }
 
         void map(char const * beg, char const * end, Silo & silo) {
             Key k;
@@ -182,7 +184,9 @@ BOOST_AUTO_TEST_CASE(MapReduceTest) {
         po::store(po::parse_command_line(
             4, const_cast<char **>(argv), options), vm);
         po::notify(vm);
-        TestJob job(vm);
+        ConfigStore config;
+        config.add(vm);
+        TestJob job(config);
         InputLines input(paths, 1*MiB, false);
         shared_ptr<Lines> lines = job.run(input);
         lines->verify();

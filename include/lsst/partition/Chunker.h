@@ -37,6 +37,10 @@
 #include "Geometry.h"
 #include "Hash.h"
 
+namespace lsst {
+namespace partition {
+    class ConfigStore;
+}} // namespace lsst::partition
 
 namespace lsst {
 namespace partition {
@@ -95,7 +99,7 @@ public:
             int32_t numStripes,
             int32_t numSubStripesPerStripe);
 
-    Chunker(boost::program_options::variables_map const & vm);
+    Chunker(ConfigStore const & config);
 
     ~Chunker();
 

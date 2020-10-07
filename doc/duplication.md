@@ -133,13 +133,13 @@ CFG_DIR=$QSERV_DIR/admin/dupr/config/PT1.2
 
 for TABLE in Object Source; do
     sph-htm-index \
-        --config-file=$CFG_DIR/$TABLE.cfg \
+        --config-file=$CFG_DIR/$TABLE.json \
         --htm.level=8 \
         --in.csv.null=NULL \
         --in.csv.delimiter=$'\t' \
         --in.csv.escape=\\ \
         --in.csv.quote='"' \
-        --in=$TABLE.tsv \
+        --in.path=$TABLE.tsv \
         --verbose \
         --mr.num-workers=6 \
         --mr.pool-size=32768 \
@@ -155,8 +155,8 @@ HTM subdivision level used for related tables must be consistent, or you
 will get failures later on.
 
 The `--in.csv.*` arguments describe the format of the dump file to the
-indexer and `--in` gives the input file to use. Note that the `--in` option
-can be specified multiple times. If `--in` is set to the name of a directory, 
+indexer and `--in.path` gives the input file to use. Note that the `--in.path` option
+can be specified multiple times. If `--in.path` is set to the name of a directory, 
 then every regular file in that directory is treated as an input file.
 
 The number of indexer threads to launch can be set via `--mr.num-workers`. The
@@ -165,41 +165,47 @@ and the amount of memory to use is (roughly) capped by `--mr.pool-size`, again
 in units of MiB.
 
 Further options are specified in a config file. Here is an extract of
-`Object.cfg`:
+`Object.json` with comments added to the original JSON file (**Note** comments are
+not allowed in JSON):
 
-    # Object table primary key column.
-    id = objectId
+    {
+        # Object table primary key column.
+        "id": "objectId",
 
+        # Position columns other than the partitioning position.
+        "pos": [
+            "ra_SG, decl_SG" # small galaxy model position.
+        ],
 
-    # Position columns other than the partitioning position.
-    pos = [
-        'ra_SG, decl_SG' # small galaxy model position.
-    ]
+        # Partitioning parameters.
+        "part": {
+            # The partitioning position is the object's point-source model position.
+            "pos": "ra_PS, decl_PS",
+            # The overlap radius in degrees.
+            "overlap": 0.01667
+        },
 
-    # Partitioning parameters.
-    part = {
-        # The partitioning position is the object's point-source model position.
-        pos     = 'ra_PS, decl_PS'
-        # The overlap radius in degrees.
-        overlap = 0.01667
-    }
+        # Output CSV format.
+        "out": {
+            "csv": {
+                "null": "\\N",
+                "delimiter": "\t",
+                "escape": "\\",
+                "no-quote": true
+            }
+        },
 
-    # Output CSV format.
-    out.csv = {
-        null      = '\\N'
-        delimiter = '\t'
-        escape    = '\\'
-        no-quote  = true
-    }
-
-    in.csv = {
-        # List of Object table column names, in order of occurrence.
-        field = [
-            objectId
-            iauId
-            ra_PS
-            ...
-        ]
+        "in": {
+            "csv: {
+                # List of Object table column names, in order of occurrence.
+                "field" [
+                    "objectId"
+                    "iauId",
+                    "ra_PS",
+                    ...
+                ]
+            }
+        }
     }
 
 This config file is equivalent to the following command line options:
@@ -243,8 +249,8 @@ CFG_DIR=$QSERV_DIR/admin/dupr/config/PT1.2
 
 for TABLE in Object Source; do
     sph-duplicate \
-        --config-file=$CFG_DIR/$TABLE.cfg \
-        --config-file=$CFG_DIR/common.cfg \
+        --config-file=$CFG_DIR/$TABLE.json \
+        --config-file=$CFG_DIR/common.json \
         --in.csv.null=\\N \
         --in.csv.delimiter=$'\t' \
         --in.csv.escape=\\ \
@@ -276,8 +282,8 @@ record count. Continuing with the example above:
 
 ~~~~sh
 sph-estimate-stats \
-    --config-file=config/PT1.2/Object.cfg \
-    --config-file=config/PT1.2/common.cfg  \
+    --config-file=config/PT1.2/Object.json \
+    --config-file=config/PT1.2/common.json  \
     --index=index/Object/htm_index.bin \
     --lon-min=60 --lon-max=72 --lat-min=-30 --lat-max=-18 \
     --out.dir=.
@@ -322,8 +328,8 @@ CFG_DIR=/my/config/directory/
 TABLE=Table
 
 sph-htm-index \
-    --config-file=$CFG_DIR/$TABLE.cfg \
-    --in=$INPUT_DIR/$TABLE/ \
+    --config-file=$CFG_DIR/$TABLE.json \
+    --in.path=$INPUT_DIR/$TABLE/ \
     --out.dir=$INDEX_DIR/$TABLE/ \
     --out.num-nodes=$M
 ~~~~

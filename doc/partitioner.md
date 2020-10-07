@@ -125,13 +125,13 @@ CFG_DIR=$QSERV_DIR/admin/dupr/config/PT1.2
 
 for TABLE in Object Source; do
     sph-partition \
-        --config-file=$CFG_DIR/$TABLE.cfg \
-        --config-file=$CFG_DIR/common.cfg \
+        --config-file=$CFG_DIR/$TABLE.json \
+        --config-file=$CFG_DIR/common.json \
         --in.csv.null=NULL \
         --in.csv.delimiter=$'\t' \
         --in.csv.escape=\\ \
         --in.csv.quote=\" \
-        --in=$TABLE.tsv \
+        --in.path=$TABLE.tsv \
         --verbose \
         --mr.num-workers=6 --mr.pool-size=32768 --mr.block-size=16 \
         --out.dir=chunks/$TABLE
@@ -142,13 +142,13 @@ The matches can be partitioned using:
 
 ~~~~sh
     sph-partition-matches \
-        --config-file=$CFG_DIR/RefObjMatch.cfg \
-        --config-file=$CFG_DIR/common.cfg \
+        --config-file=$CFG_DIR/RefObjMatch.json \
+        --config-file=$CFG_DIR/common.json \
         --in.csv.null=NULL \
         --in.csv.delimiter=$'\t' \
         --in.csv.escape=\\ \
         --in.csv.quote=\" \
-        --in=RefObjMatch.tsv \
+        --in.path=RefObjMatch.tsv \
         --verbose \
         --mr.num-workers=6 --mr.pool-size=32768 --mr.block-size=16 \
         --out.num-nodes=1 --out.dir=chunks/RefObjMatch

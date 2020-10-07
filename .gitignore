@@ -12,6 +12,7 @@ bin/sph-*
 python/lsst/partition/version.py
 tests/.tests/
 tests/chunkIndex
+tests/configStore
 tests/csv
 tests/fileUtils
 tests/geometry
