@@ -111,6 +111,12 @@ bool ConfigStore::has(string const& path) const {
 }
 
 
+bool ConfigStore::flag(std::string const& path) const {
+    if (!has(path)) return false;
+    return get<bool>(path);
+}
+
+
 json::json_pointer ConfigStore::_path2pointer(string const& path) {
     string const context = "ConfigStore::" + string(__func__) + ": ";
     json::json_pointer pointer;
