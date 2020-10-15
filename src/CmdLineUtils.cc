@@ -71,8 +71,10 @@ ConfigStore parseCommandLine(po::options_description const & options,
     po::options_description common("\\_____________________ Common", 80);
     common.add_options()
         ("help,h",
+         po::bool_switch()->default_value(false),
          "Demystify program usage.")
         ("verbose,v",
+         po::bool_switch()->default_value(false),
          "Chatty output.")
         ("config-file,c", po::value<std::vector<std::string> >(),
          "The name of a configuration file containing program option values "
@@ -89,7 +91,7 @@ ConfigStore parseCommandLine(po::options_description const & options,
     po::variables_map vm;
     po::store(po::parse_command_line(argc, const_cast<char **>(argv), all), vm);
     po::notify(vm);
-    if (vm.count("help") != 0) {
+    if ((vm.count("help") != 0) && vm["help"].as<bool>()) {
         std::cout << argv[0]  << " [options]\n\n" << help << "\n"
                   << all << std::endl;
         std::exit(EXIT_SUCCESS);
