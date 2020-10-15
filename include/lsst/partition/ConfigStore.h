@@ -260,10 +260,7 @@ public:
      * @return A state of the flag.
      * @throw std::invalid_argument The path is not valid.
      */
-    bool flag(std::string const& path) const {
-        if (!has(path)) return false;
-        return get<bool>(path);
-    }
+    bool flag(std::string const& path) const;
 
 private:
     /**

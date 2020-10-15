@@ -188,6 +188,7 @@ void Worker::defineOptions(po::options_description & opts) {
          po::value<std::string>(),
          "Universal resource locator for an existing secondary index.")
         ("part.disable-chunks",
+         po::bool_switch()->default_value(false),
          "This flag if present would disable making chunk files in the output folder. "
          "It's meant to run the tool in the 'dry run' mode, validating input files, "
          "generating the objectId-to-chunk/sub-chunk index map.");

@@ -148,14 +148,14 @@ boost::shared_ptr<ChunkIndex> const estimateStats(
 
 boost::shared_ptr<ChunkIndex> const estimateStats(ConfigStore const & config) {
     Chunker chunker(config);
-    if (!config.flag("index") && !config.flag("part.index")) {
+    if (!config.has("index") && !config.has("part.index")) {
         throw std::runtime_error("One or both of the --index and --part.index "
                                  "options must be specified.");
     }
     // Load HTM indexes
-    char const * opt = (config.flag("index") ? "index" : "part.index");
+    char const * opt = (config.has("index") ? "index" : "part.index");
     fs::path indexPath(config.get<std::string>(opt));
-    opt = (config.flag("part.index") ? "part.index" : "index");
+    opt = (config.has("part.index") ? "part.index" : "index");
     fs::path partIndexPath(config.get<std::string>(opt));
     boost::shared_ptr<HtmIndex> index(new HtmIndex(indexPath));
     boost::shared_ptr<HtmIndex> partIndex;

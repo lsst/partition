@@ -580,13 +580,13 @@ boost::shared_ptr<ChunkIndex> const Duplicator::run(
         throw std::runtime_error("One or both of the --id and --part.id "
                                  "options must be specified.");
     }
-    if (!config.flag("index") && !config.flag("part.index")) {
+    if (!config.has("index") && !config.has("part.index")) {
         throw std::runtime_error("One or both of the --index and --part.index "
                                  "options must be specified.");
     }
-    char const * opt = (config.flag("index") ? "index" : "part.index");
+    char const * opt = (config.has("index") ? "index" : "part.index");
     fs::path indexPath(config.get<std::string>(opt));
-    opt = (config.flag("part.index") ? "part.index" : "index");
+    opt = (config.has("part.index") ? "part.index" : "index");
     fs::path partIndexPath(config.get<std::string>(opt));
     _index.reset(new HtmIndex(indexPath));
     if (partIndexPath != indexPath) {

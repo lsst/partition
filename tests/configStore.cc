@@ -232,6 +232,14 @@ BOOST_AUTO_TEST_CASE(ConfigStoreTest) {
     BOOST_CHECK_EQUAL(simpleStorePtr->get<bool>("flag_false"), false);
     BOOST_CHECK_EQUAL(simpleStorePtr->flag("flag_false"), false);
 
+    // Parameters which are not of type 'bool' should not be used as 'flags'
+    BOOST_REQUIRE_NO_THROW({
+        simpleStorePtr->get<std::string>("s");
+    });
+    BOOST_CHECK_THROW({
+        simpleStorePtr->flag("s");
+    }, std::exception);
+
     // Adding new or modifying existing parameters
 
     BOOST_CHECK_THROW({
@@ -488,3 +496,4 @@ BOOST_AUTO_TEST_CASE(ConfigStoreTest) {
     BOOST_CHECK_EQUAL(nextConfig.get<bool>("flag"), true);
     BOOST_CHECK_EQUAL(nextConfig.flag("flag"), true);
 }
+
