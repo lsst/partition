@@ -28,6 +28,27 @@ target_link_libraries(partition PUBLIC
     boost_thread
 )
 
-install(
-    TARGETS partition
+
+add_executable(sph-partition sph-partition.cc)
+target_sources(partition PRIVATE
+ObjectIndex.cc
+)
+target_link_libraries(sph-partition PRIVATE
+partition
+boost_filesystem
+)
+
+
+add_executable(sph-partition-matches sph-partition-matches.cc)
+target_sources(sph-partition-matches PRIVATE)
+target_link_libraries(sph-partition-matches PRIVATE
+partition
+boost_filesystem
+)
+
+
+install(TARGETS
+    partition
+    sph-partition
+    sph-partition-matches
 )
